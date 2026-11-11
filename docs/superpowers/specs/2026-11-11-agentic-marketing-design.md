@@ -1,133 +1,129 @@
 # Agentic marketing system: design
 
-Date: 2026-11-11 · Working name: **autopromo** (my call, rename freely)
+Date: 2026-11-11 · v2 (after Ho Young's review the same day) · Working name: **autopromo**
+
+## What changed in v2
+
+1. **Claude runs on an API key, not the owner's subscription.** Anthropic's Agent SDK docs don't allow third-party products to offer claude.ai login or subscription rate limits. Agents run as scheduled GitHub Actions with the owner's `ANTHROPIC_API_KEY`. The cost line is now API usage.
+2. **The first product is Stay2U (stay2u.com) and its membership**, not l2u.co.kr.
+3. **Success = membership sign-ups and purchases** that came through our tracked links. Clicks are the early signal.
+4. **Prices are allowed**, but only as stated on the product site (the membership is a paid product).
+5. **Every channel starts in "approve first" mode.** A person approves each post until the owner turns on auto-publish for that channel.
+6. **Low volume on new accounts:** 1 post a day per account by default. Raise it only after posts go through cleanly.
+7. **This is judged over months.** Weekly numbers are signals for tuning, not the verdict.
 
 ## 1. What and why
 
-An open-source system that promotes a product on social media **with no one attending it**. The owner enters a product URL and who it is for, connects their accounts once, and leaves. The system works out what to say, makes posts, has them reviewed, publishes them, measures clicks, and gets better each week.
+An open-source system that promotes a product on social media with as little attention as possible. The owner enters the product URL and who it's for, connects their accounts once, and approves posts while trust is built. After that, they switch channels to auto-publish and leave it. It works out what to say, makes the posts, has them reviewed, publishes them, measures what they bring in, and improves over time.
 
-The first product is **l2u.co.kr**, a Korean hotel and resort booking site with member discounts, currently in beta and pushing sign-ups for its "PICK" member prices.
+**First product: Stay2U (stay2u.com).** S2U is a lodging membership from 레저투유 (the company behind L2U). The member pays a refundable deposit (Silver 5,000,000 / Gold 10,000,000 / Platinum 20,000,000 KRW) and gets monthly lodging support (100,000 / 220,000 / 480,000 KRW) for 3 years. The deposit comes back at the end of the term after settlement. Leaving early costs a 20% penalty plus deductions. People sign up through a free consultation request (a form on the site, phone, or KakaoTalk), then sign a contract.
 
-Success = **clicks on our tracked links**. That is the only metric. (The team's real goal is appointments and bookings, but the system can't see those, so clicks stand in for them.)
+**Success** = membership sign-ups (consultation requests) and purchases (signed contracts) that came through our tracked links. Clicks are the leading indicator we can see right away.
 
 ## 2. Goals, non-goals, anti-goals
 
 **Goals**
-- Zero attendance: after setup, it runs for weeks without the owner.
-- Works for any product and any audience. l2u is just the first.
-- Anyone can run it on their own accounts: fork, deploy, connect, done in about 15 minutes.
-- More clicks over time, because it learns which topics and formats work.
+- After the approval period, it runs for weeks with no one attending.
+- Works for any product and audience. Stay2U is just the first.
+- Anyone can run their own copy: fork, deploy, connect, done in about 30 minutes.
+- More sign-ups over months, because it learns which topics and formats bring them.
 
 **Non-goals (v1)**
-- Video (Reels and Shorts). That comes in v2: the same carousel slides become simple photo-and-text videos.
+- Video (Reels and Shorts). That comes in v2, made from the same slides.
 - Replying to comments, liking, or following.
 - Paid ads.
-- Measuring bookings or sign-ups inside the product.
-- A hosted service. We never run other people's copies.
+- Attributing phone and KakaoTalk sign-ups (only the site form can report back automatically).
+- A hosted service.
 
-**Anti-goals: if any of these happen, it has failed even if it "works"**
-- It posts something false: a price, discount, or claim that isn't on the product's site.
-- It sounds pushy or salesy, or mocks anyone.
-- It gets an owner's account banned or shadowbanned.
+**Anti-goals: any of these is a failure, even if it "works"**
+- It posts something false or misleading, such as a price, a benefit, or "deposit back" without its conditions.
+- It sounds pushy, or like an investment ("수익", "원금 보장", "공짜 숙박").
+- It gets an owner's account banned or restricted, including the owner's Claude account.
 - It automates channels that forbid automation.
 
 ## 3. How the owner experiences it
 
-1. Fork the repo and deploy the dashboard to Vercel (free tier).
-2. Create a Zernio account and connect social accounts **by hand** (Instagram business account, Threads, and others). Paste the Zernio API key into the dashboard.
-3. In Claude Code, run one setup command that creates the scheduled cloud agents in the owner's own Claude account.
-4. In the dashboard: product URL, target users, language, and posting frequency.
-5. Leave. Open the dashboard whenever they want to see results.
+1. Fork the repo and deploy the dashboard to Vercel (free tier) with a Postgres database (Neon via the Vercel Marketplace).
+2. Create a Zernio account and connect the social accounts **by hand**. Paste the Zernio API key into Vercel's env vars.
+3. In the fork's GitHub settings, add `ANTHROPIC_API_KEY`, `APP_URL` and `AGENT_TOKEN` as secrets. The agents run on GitHub Actions' schedule.
+4. In the dashboard, enter the product URL (the page tracked links go to), target users, language, and timezone.
+5. For a while: open **Waiting for you**, approve or skip each reviewed post.
+6. When a channel's posts go through cleanly, switch it to **auto-publish**. Check the dashboard occasionally.
 
-## 4. The agents (all scheduled Claude cloud agents on the owner's subscription)
+## 4. The agents
+
+Claude Code runs headless in GitHub Actions (`anthropics/claude-code-action`) with the owner's API key, reading prompt files from the repo.
 
 | Agent | When | What it does |
 |---|---|---|
-| **Researcher** | On setup, then weekly | Reads the product site and writes a **fact sheet**: every fact (price, discount, destination, how to sign up) with the page it came from. It's the only source of claims. The owner can edit it in Settings. |
-| **Writer** | Daily | Picks topics useful to the target users, writes posts per channel, picks real photos, and adds a tracked link. Uses the playbook (below). |
-| **Reviewer** | After every writer run, in a fresh session | Checks each post against the rules (section 6) and the fact sheet. Verdict: **pass** or **block** with a reason. The writer gets one chance to fix a blocked post; if it fails again, the post is dropped. The writer never approves its own work. |
-| **Publisher** | Right after review | Sends passed posts to Zernio with their scheduled times. Posts for non-automatable channels go to "Waiting for you" instead. |
-| **Analyst** | Weekly | Reads the click numbers and rewrites the **playbook**: a short note on which topics, formats, and times won and which to drop ("drop what stalls, double down on what broke out"). |
+| **Researcher** | Weekly + on setup | Reads the product site and writes the **fact sheet**: every fact, including membership prices, benefits and conditions, with the page it came from. It's the only source of claims, and the owner can edit it. |
+| **Writer** | Daily | Picks useful topics for the target users and writes posts per enabled channel. Adds real photos and makes about 20% experiments. Revises blocked posts once. |
+| **Reviewer** | Daily, after the writer, in a fresh session | Checks every draft against the rules and the fact sheet. Passes it or blocks it with a reason. When unsure, it blocks. |
+| **Analyst** | Weekly | Rewrites the **playbook** from 28- and 90-day numbers, weighted toward sign-ups, not clicks. |
 
-The agents talk to the dashboard app over its API with a secret token. All state lives in the app's database, not in the agents.
+**Publishing is code, not an agent.** A post the reviewer passes goes to "Waiting for you" if the channel is in approve-first mode, or straight to Zernio if it's on auto-publish.
 
-Running on the owner's subscription means the work happens inside Claude Code's own scheduled agents. The app never holds or uses the owner's Claude login.
-
-**One set of agents for all products** (my call): each run loops over the active products, so adding a product doesn't add agents. Each product has its own Zernio profile and its own social accounts.
-
-**Plan B** (my call): if scheduled cloud agents can't call the app's API or run reliably, the same agent prompts run as scheduled GitHub Actions in the owner's fork, using Claude Code with the owner's subscription token stored as a GitHub secret. The app still never holds it. Prompts are written once and work in either place.
+**Cost (my estimate, to measure after week 1):** with Claude Opus 5.5 ($4 input / $20 output per million tokens, $0.20 for cached reads), about **$1 per writer run** and $0.50 per reviewer run. That's roughly **$50–60 a month per product**. Switching the agents to Sonnet 5.5 would be about half that. Each job has a turn cap so a confused run can't run up a bill. GitHub Actions is free for public repos. Zernio is free for 2 accounts.
 
 ## 5. Channels
 
-**Automatic (via Zernio):** Instagram (business account) and Threads for l2u. Other Zernio channels (Facebook, YouTube, TikTok, X, LinkedIn, Bluesky, …) are available per product but off by default.
+**Automatic (via Zernio):** Instagram (business account) and Threads for Stay2U. Other Zernio channels are available but off.
 
-**Can't be automated, off by default:** Naver Blog (no posting API since 2020), Naver Cafe, Reddit, HN. If the owner turns one on, reviewed drafts appear in "Waiting for you" with "Copy & open" and "Skip". Drafts expire after 7 days. If the owner never looks, nothing breaks.
+**Every automatable channel starts in approve-first mode.** Reviewed posts wait for one tap. The owner turns on auto-publish per channel after posts go through cleanly (Ho Young's guide: when fewer than about 10% need correcting).
 
-The system picks which channels to suggest based on the product's language and audience. Korean travel → Instagram, Threads, and Naver. English dev tool → X, Bluesky, Dev.to, and so on.
+**Can't be automated:** Naver Blog, Naver Cafe, Reddit, HN. Drafts only, with "Copy & open".
 
-**Account-safety rules** (from Ho Young's incidents):
-- A person creates every account and does every login. No automated sign-ups.
+**Account safety** (from Ho Young's incidents):
+- A person creates every account and does every login.
 - No automated likes, follows, or comments.
-- Every profile bio says AI is used.
-- **Slow start** (my call): for the first 2 weeks on a channel, half the normal posting volume. The incident behind these rules was a TikTok account suspended after being signed up through an automated browser.
+- Every bio says AI is used.
+- New accounts post 1 a day. Each channel's first 14 days run at half volume if the owner raises it.
 
 ## 6. Content rules
 
-- Polite, calm, and informative. Give useful information; don't sell hard.
-- Only claims found in the fact sheet. No made-up numbers, reviews, or urgency.
-- **No specific prices** (my call). Prices change daily and member prices sit behind a login, so posts mention the member discount only in general terms ("회원가로 더 저렴하게"). The researcher never logs in.
-- No competitor comparisons and no jokes at anyone's expense.
-- The member discount or offer is mentioned once per post, with the tracked link.
-- An automatic banned-phrase check runs before the reviewer, with a default list plus the owner's own words. For l2u: 최저가 보장, 마감 임박, 100%, and any savings not in the fact sheet.
+- Polite, calm, and informative. Useful first, selling second.
+- Only claims from the fact sheet. **Prices and benefits exactly as on the site.** A fact's conditions travel with it: never "deposit back" without "at the end of the 3-year term, after settlement".
+- Never hotel room rates, which change daily. Membership prices are fine.
+- No competitor comparisons, no jokes at anyone's expense, no investment language.
+- One call to action per post, with the tracked link.
+- Automatic banned-phrase check before review: the defaults (`최저가 보장`, `마감 임박`, `100%`) plus the product's own list. For Stay2U: `수익`, `원금 보장`, `공짜`, `무료 숙박`, `무조건`.
 - When in doubt, block.
 
 ## 7. Post formats (v1)
 
-- **Instagram: 카드뉴스 (card-news) carousels.** 5–7 slides. Each slide is a real destination photo with one short, useful tip. The last slide has the offer and the link (link also in the caption and bio).
-- **Threads: text-first** posts with the same tips, plus one photo when it helps.
-- **Photos:** Unsplash and Pexels APIs (free, licensed for commercial use, real places), with credit where the license asks for it. Stock photos only ever show the **area** (city, beach, street), never a building that could be mistaken for a specific hotel. The slide carries a small "이미지는 지역 사진입니다" note (my call). The owner can optionally upload their own photos that they have rights to.
-- **Slides are rendered by the dashboard app** from a slide spec the writer produces (photo + text + layout) and served as image URLs that Zernio can fetch.
+- **Instagram:** 카드뉴스 carousels, 5–7 slides. A real photo with one short tip per slide. The last slide carries the offer, and the link goes in the bio.
+- **Threads:** text-first, optionally one photo, with the link in the post.
+- **Photos:** Unsplash and Pexels (licensed, real places), credited. Slides with stock photos say `이미지는 지역 사진입니다`.
 
-## 8. Tracked links
+## 8. Tracked links and conversions
 
-- Every post gets its own short link: `<app-domain>/go/<code>` → redirect to the product URL with UTM tags.
-- Each click is counted with the post, channel, and time. No personal data is stored. Obvious bots are filtered out by user agent.
-- The owner can point their own short domain at the app if they want.
-- **Instagram** (my call): captions can't hold clickable links, so the app serves a **link-in-bio page** listing recent posts, each with its own tracked link. The owner sets the bio link to it once during setup. Clicks are still counted per post.
+- Every post has its own link: `<app>/go/<code>`. Each real click is counted (bots filtered out) and redirects to the product URL with UTM tags plus `ap_click=<click id>`.
+- **Conversions:** the product site keeps `ap_click` from the landing URL. When a consultation request or contract happens, its backend calls `POST <app>/api/conversions` with a secret token: `{click_id, kind: 'signup'|'purchase', value?, external_id?}`. That ties the sign-up to the exact post. `external_id` keeps retries from double-counting.
+- No personal data is stored: no names, phones, or emails. Only ids, kind, value, and time.
+- **Stay2U needs one change on its site:** keep `ap_click` and report consultation requests (and later, contracts) to that endpoint. Phone and KakaoTalk sign-ups won't be attributed.
 
 ## 9. Dashboard
 
-A login-protected web app, with a product switcher at the top, and five tabs:
+Login-protected, with a product switcher and five tabs:
 
-- **Overview:** clicks this week, a clicks-per-day chart, top posts, what's posting next, and channel status.
-- **Posts:** every post with its channel, text, slides, reviewer verdict (including blocked posts and why), and clicks.
-- **Waiting for you:** drafts for non-automatable channels.
-- **Channels:** an on/off switch per channel and connection status ("reconnect" when a login expires).
-- **Settings:** product URL, target users, language, tone notes, banned words, posting frequency, and the editable fact sheet and playbook.
+- **Overview:** sign-ups, purchases, and clicks for the last 7 days, 28 days, 90 days, and since start. A clicks/sign-ups chart, top posts by sign-ups then clicks, what's posting next, and channel status. A note says weekly numbers are signals.
+- **Posts:** every post with its slides, reviewer verdict, clicks, sign-ups, and purchases.
+- **Waiting for you:** reviewed posts to approve (scheduled via Zernio) or skip, plus drafts-only channels with "Copy & open".
+- **Channels:** on/off, auto-publish on/off, Zernio account, and reconnect status.
+- **Settings:** product fields, fact sheet, playbook, and the Instagram bio link.
 
-## 10. Tech choices
+## 10. How we judge it
 
-- **Brain:** Claude Code scheduled cloud agents on the owner's Claude subscription.
-- **Posting:** Zernio API (formerly Late). Free for 2 accounts, then about $6 per account per month.
-- **App:** one web app on Vercel holding the dashboard, API, link redirects, and slide rendering, plus a small Postgres database from the Vercel Marketplace.
-- **Photos:** Unsplash and Pexels APIs.
-- **License:** MIT (my call).
+- Look at month-over-month sign-ups, not one week.
+- The analyst drops a topic or format only after at least 8 posts and 4 weeks of data.
+- First real verdict after about 3 months. Weekly reports are for tuning.
 
-## 11. Defaults (my calls, editable in Settings)
+## 11. Tech
 
-- Instagram: 1 carousel a day. Threads: 2 posts a day. Times spread across the day in the product's timezone.
-- The writer makes about 20% "new experiment" posts and 80% posts following the playbook.
-- Fact sheet refreshed weekly. If a fact disappears from the site, posts using it stop.
+Next.js on Vercel (dashboard, API, redirects, slide rendering, publishing). Postgres on Neon. Zernio API. Unsplash and Pexels APIs. Claude Code in GitHub Actions with `ANTHROPIC_API_KEY`. MIT license.
 
-## 12. Left to the builder
+## 12. Things to verify before launch
 
-- Framework, database schema, and code structure.
-- Slide layout and design.
-- How the setup command creates the cloud agents.
-- How retries work when Zernio or a photo API fails (sensible default: retry twice, then log it on the dashboard).
-
-## 13. Things to verify before building
-
-- Claude Code scheduled cloud agents can call an outside API (network access) and run daily on a subscription.
-- Zernio supports Instagram carousels and Threads, and its actual pricing.
-- Subscription usage limits hold up with daily runs across several products.
+- Zernio supports Instagram carousels and Threads, and its real pricing (Task 0).
+- Stay2U's site change for `ap_click` and the conversion call: who builds it.
+- Measured API cost after the first week, compared with the estimate.
