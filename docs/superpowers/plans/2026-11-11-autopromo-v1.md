@@ -288,3 +288,58 @@ Each prompt says exactly which endpoints to call, in which order, and what "done
 
 - [ ] **Step 1:** Ask your human partner to confirm before creating the public repo. Then `gh repo create must-pastelwave/autopromo --public --source . --push`.
 - [ ] **Step 2:** Confirm the README renders and `.env` is not in the repo (`git ls-files | grep -c '^\.env$'` → 0).
+
+---
+
+## Amendment A (2026-11-11): Ho Young's review → spec v2
+
+Tasks 1–9 are built. These tasks change them, and they run before Task 10. Task 10 is rewritten below.
+
+### Task A1: Approve-first channels and low default volume
+
+**Files:** Modify `schema.sql`, `src/lib/publish.ts`, `src/lib/publish.test.ts`, `src/app/(dash)/actions.ts`, `src/app/(dash)/waiting/page.tsx`, `src/app/(dash)/channels/page.tsx`
+
+**Interfaces:**
+- Schema: `channels.auto_publish boolean not null default false`; `products.threads_per_day` default **1**.
+- `publish(postId, opts: { retry?: boolean; approved?: boolean })`: goes to `waiting` when the channel isn't automatable, **or** `!auto_publish && !approved`. A post that's already `waiting` and gets approved → normal Zernio scheduling.
+- Server action `approveWaiting(f)` → `publish(id, { approved: true })` for automatable channels.
+
+- [ ] **Step 1: Failing tests:** an automatable channel with `auto_publish=false` → `waiting`, no Zernio call; the same post with `publish(id, {approved: true})` → `scheduled`; an auto channel → `scheduled` directly; non-automatable + approved → still `waiting`.
+- [ ] **Step 2:** Run. Expected: FAIL.
+- [ ] **Step 3:** Implement. Waiting page: automatable posts get "Approve & schedule" + "Skip"; drafts-only keep "Copy & open". Channels page: an "Auto-publish" toggle per automatable channel, off by default, labelled "turn on after posts go through cleanly".
+- [ ] **Step 4:** Run. Expected: PASS. **Commit** `feat: approve-first channels`.
+
+### Task A2: Conversions
+
+**Files:** Modify `schema.sql`, `src/lib/links.ts` (+test), `src/app/go/[code]/route.ts`, `src/proxy.ts`, `src/app/api/agent/stats/route.ts`. Create `src/app/api/conversions/route.ts`, `src/app/api/conversions/conversions.test.ts`
+
+**Interfaces:**
+- Schema: `conversions(id bigserial pk, post_id int not null references posts, click_id bigint references clicks, kind text check in ('signup','purchase'), value numeric, external_id text, at timestamptz default now(), unique (kind, external_id))`.
+- `trackedUrl(productUrl, {channel, postId, topic, clickId?})` adds `ap_click=<clickId>` when given; keeps the `#fragment` after the query.
+- `/go/[code]`: `insert into clicks ... returning id`, then pass it as `clickId`.
+- `POST /api/conversions` (public in proxy, own token `CONVERSION_TOKEN`, constant-time): body `{click_id?: number, post_id?: number, kind, value?: number, external_id?: string ≤100}`. Resolves the post from `click_id` (preferred) or `post_id`; 400 if neither resolves; a repeated `external_id` → 200 with the existing row, otherwise 201.
+- Stats: each post also has `signups` and `purchases`.
+
+- [ ] **Step 1: Failing tests:** `trackedUrl('https://stay2u.com/#membership', {..., clickId: 9})` → `https://stay2u.com/?utm_source=...&utm_content=7&ap_click=9#membership`; conversion by click_id → 201, linked to the click's post; repeat external_id → 200 and one row; unknown click → 400; bad kind → 400; wrong/missing token → 401; stats include signups.
+- [ ] **Step 2:** Run. Expected: FAIL.
+- [ ] **Step 3:** Implement.
+- [ ] **Step 4:** Run. Expected: PASS. **Commit** `feat: conversions`.
+
+### Task A3: Dashboard for long-term judging
+
+**Files:** Modify `src/app/(dash)/page.tsx`, `src/app/(dash)/posts/page.tsx`
+
+- Overview: a table of sign-ups / purchases / clicks for 7 days, 28 days, 90 days, and since start; the chart shows clicks and sign-ups per day for 90 days; top posts ordered by sign-ups, then clicks (90 days); one muted line: "Weekly numbers are signals for tuning. Judge month over month."
+- Posts: sign-ups and purchases columns.
+- [ ] **Step 1:** Implement. **Step 2: Browser check** (covers the deferred Task 9 interactive check too): add a product, toggle a channel on and auto-publish, edit a fact, approve a waiting post (Zernio mocked off: expect `failed` with "channel not connected" when there's no account), and confirm the numbers show after seeding clicks and conversions. **Step 3: Commit** `feat: long-term dashboard`.
+
+### Task 10 (rewritten): Agent prompts, GitHub Actions, setup docs
+
+**Files:** Create `agents/common.md`, `agents/researcher.md`, `agents/writer.md`, `agents/reviewer.md`, `agents/analyst.md`, `.github/workflows/agents.yml`, `SETUP.md`, `README.md`, `docs/stay2u.md`
+
+- Agents run **only** via `anthropics/claude-code-action` with `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}`. No subscription token anywhere in the repo. Model `claude-opus-5-5` (an owner can change it in one place: `vars.AGENT_MODEL`), and every job has a `--max-turns` cap.
+- Schedules (UTC, editable): researcher Mon 21:00 UTC (Tue 06:00 KST), writer daily 22:00, reviewer daily 23:00, analyst Sun 11:00. Every job ends with `POST /api/agent/maintenance`. `workflow_dispatch` on all of them for manual runs.
+- Prompts follow spec v2 §6: prices exactly as on the fact sheet; conditions travel with facts; no hotel room rates; no investment language. The analyst uses 28- and 90-day windows, weights sign-ups over clicks, and doesn't drop a format before 8 posts and 4 weeks.
+- `docs/stay2u.md`: the first-product setup (URL `https://stay2u.com/#membership`, audience, banned words from spec §6) and the site change Stay2U needs (keep `ap_click`, call `/api/conversions` on consultation requests and contracts), with a copy-paste example.
+- `SETUP.md` includes the cost line from spec §4 and how to see real spend (Anthropic Console usage).
+- [ ] **Step 1:** Write the files. **Step 2:** `actionlint` (if installed) or a YAML parse check on the workflow. **Step 3:** One manual researcher → writer → reviewer run against the local app with a local `ANTHROPIC_API_KEY` **only if your human partner OKs the spend**. Otherwise skip it and say so. **Step 4: Commit** `feat: agents and setup docs`.
