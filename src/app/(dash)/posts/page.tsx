@@ -9,7 +9,9 @@ export default async function Posts({ searchParams }: { searchParams: Promise<{ 
   if (!p) return <p>No product yet.</p>
   const status = STATUSES.includes((await searchParams).status ?? '') ? (await searchParams).status! : 'all'
   const posts = await sql`
-    select x.*, c.platform, (select count(*)::int from clicks k where k.post_id = x.id) as clicks
+    select x.*, c.platform, (select count(*)::int from clicks k where k.post_id = x.id) as clicks,
+      (select count(*)::int from conversions v where v.post_id = x.id and v.kind = 'signup') as signups,
+      (select count(*)::int from conversions v where v.post_id = x.id and v.kind = 'purchase') as purchases
     from posts x join channels c on c.id = x.channel_id
     where x.product_id = ${p.id} and (${status} = 'all' or x.status = ${status})
     order by x.id desc limit 200`
@@ -19,7 +21,7 @@ export default async function Posts({ searchParams }: { searchParams: Promise<{ 
         {STATUSES.map(s => <Link key={s} href={s === 'all' ? '/posts' : `/posts?status=${s}`} className="badge" aria-current={s === status ? 'page' : undefined}>{s}</Link>)}
       </div>
       <div className="scroll"><table>
-        <thead><tr><th>Channel</th><th>Post</th><th>Status</th><th>Clicks</th><th>When</th></tr></thead>
+        <thead><tr><th>Channel</th><th>Post</th><th>Status</th><th>Sign-ups</th><th>Purchases</th><th>Clicks</th><th>When</th></tr></thead>
         <tbody>
           {posts.map(x => (
             <tr key={x.id}>
@@ -39,11 +41,13 @@ export default async function Posts({ searchParams }: { searchParams: Promise<{ 
                 {x.review_reason && <div className="muted">{x.review_reason}</div>}
                 {x.error && <div className="muted">{x.error}</div>}
               </td>
+              <td>{x.signups}</td>
+              <td>{x.purchases}</td>
               <td>{x.clicks}</td>
               <td className="muted">{x.scheduled_for ? new Date(x.scheduled_for).toLocaleString('ko-KR', { timeZone: p.timezone }) : '—'}</td>
             </tr>
           ))}
-          {posts.length === 0 && <tr><td colSpan={5} className="muted">No posts.</td></tr>}
+          {posts.length === 0 && <tr><td colSpan={7} className="muted">No posts.</td></tr>}
         </tbody>
       </table></div>
     </>

@@ -1,5 +1,5 @@
 import { test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { createPost, ZernioError } from './zernio'
+import { createPost, listAccounts, ZernioError } from './zernio'
 
 const args = { postId: 42, accountId: 'acc1', platform: 'threads', caption: 'hi', mediaUrls: ['https://app.test/api/slide/42/0.png'], scheduledFor: new Date('2026-11-12T00:07:00Z') }
 beforeEach(() => { process.env.ZERNIO_API_KEY = 'sk_test' })
@@ -31,4 +31,11 @@ test('no media → no mediaItems field', async () => {
   const f = respond(201, { post: { _id: 'z2', status: 'scheduled' } })
   await createPost({ ...args, mediaUrls: [] })
   expect(JSON.parse(String((f.mock.calls[0] as unknown as [string, RequestInit])[1].body))).not.toHaveProperty('mediaItems')
+})
+
+test('no API key → clear error, no network call', async () => {
+  delete process.env.ZERNIO_API_KEY
+  const f = vi.fn(); vi.stubGlobal('fetch', f)
+  await expect(listAccounts()).rejects.toThrow('ZERNIO_API_KEY is not set')
+  expect(f).not.toHaveBeenCalled()
 })

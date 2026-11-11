@@ -7,8 +7,10 @@ export class ZernioError extends Error {
 }
 
 async function call(path: string, init: RequestInit = {}): Promise<{ status: number; body: any }> {
+  const key = process.env.ZERNIO_API_KEY
+  if (!key) throw new ZernioError(0, 'ZERNIO_API_KEY is not set')
   const headers = new Headers(init.headers)
-  headers.set('Authorization', `Bearer ${process.env.ZERNIO_API_KEY ?? ''}`)
+  headers.set('Authorization', `Bearer ${key}`)
   if (init.body) headers.set('Content-Type', 'application/json')
   const r = await fetch(`${BASE}${path}`, { ...init, headers })
   const text = await r.text()
