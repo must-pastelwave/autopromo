@@ -24,6 +24,12 @@ create table if not exists posts (
   unique (product_id, client_key));
 create table if not exists clicks (id bigserial primary key, post_id int not null references posts, at timestamptz not null default now());
 create index if not exists clicks_post on clicks(post_id);
+-- Sign-ups and purchases reported by the product site. No personal data: ids, kind, value, time.
+create table if not exists conversions (
+  id bigserial primary key, post_id int not null references posts, click_id bigint references clicks,
+  kind text not null check (kind in ('signup','purchase')), value numeric, external_id text,
+  at timestamptz not null default now(), unique (kind, external_id));
+create index if not exists conversions_post on conversions(post_id);
 
 -- Upgrades for databases created before these columns existed (safe to re-run).
 alter table channels add column if not exists auto_publish boolean not null default false;

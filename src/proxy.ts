@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { checkAgent, isOwnerCookie, SESSION_COOKIE } from '@/lib/auth'
 
 // Public: tracked links, link-in-bio, slide images (Zernio fetches them), login.
-// /api/cron checks CRON_SECRET itself.
-const PUBLIC = /^\/(go|l|login)(\/|$)|^\/api\/(slide|cron)(\/|$)/
+// /api/cron and /api/conversions check their own secrets.
+const PUBLIC = /^\/(go|l|login)(\/|$)|^\/api\/(slide|cron|conversions)(\/|$)/
 
 export function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname

@@ -7,12 +7,14 @@ export function newCode(): string {
   return [...randomBytes(8)].map(b => ALPHABET[b % 36]).join('')
 }
 
-export function trackedUrl(productUrl: string, p: { channel: string; postId: number; topic: string }): string {
+export function trackedUrl(productUrl: string, p: { channel: string; postId: number; topic: string; clickId?: number }): string {
   const u = new URL(productUrl)
   u.searchParams.set('utm_source', p.channel)
   u.searchParams.set('utm_medium', 'social')
   u.searchParams.set('utm_campaign', 'autopromo')
   u.searchParams.set('utm_content', String(p.postId))
+  // The product site keeps ap_click and sends it back with a sign-up (POST /api/conversions).
+  if (p.clickId !== undefined) u.searchParams.set('ap_click', String(p.clickId))
   return u.toString()
 }
 

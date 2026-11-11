@@ -8,7 +8,9 @@ export async function GET(req: Request) {
   if (!Number.isInteger(productId)) return bad('product_id required')
   const posts = await sql`
     select p.id, p.topic, p.format_tag, p.is_experiment, c.platform as channel, p.scheduled_for, p.status,
-      (select count(*)::int from clicks k where k.post_id = p.id) as clicks
+      (select count(*)::int from clicks k where k.post_id = p.id) as clicks,
+      (select count(*)::int from conversions v where v.post_id = p.id and v.kind = 'signup') as signups,
+      (select count(*)::int from conversions v where v.post_id = p.id and v.kind = 'purchase') as purchases
     from posts p join channels c on c.id = p.channel_id
     where p.product_id = ${productId} and p.status in ('scheduled', 'published')
       and p.scheduled_for > now() - make_interval(days => ${days})
