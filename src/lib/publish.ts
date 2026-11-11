@@ -12,14 +12,15 @@ function captionFor(platform: string, caption: string, code: string): string {
   return platform === 'instagram' ? `${caption}\n\n${IG_LINK_NOTE}` : `${caption}\n\n${appUrl()}/go/${code}`
 }
 
-/** Schedule a reviewed post in Zernio, or park it for the owner if the channel can't be automated. */
-export async function publish(postId: number, opts: { retry?: boolean } = {}): Promise<void> {
+/** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
+export async function publish(postId: number, opts: { retry?: boolean; approved?: boolean } = {}): Promise<void> {
   const [row] = await sql`
-    select p.*, c.platform, c.automatable, c.zernio_account_id, c.started_at, pr.timezone, pr.ig_per_day, pr.threads_per_day
+    select p.*, c.platform, c.automatable, c.auto_publish, c.zernio_account_id, c.started_at, pr.timezone, pr.ig_per_day, pr.threads_per_day
     from posts p join channels c on c.id = p.channel_id join products pr on pr.id = p.product_id
     where p.id = ${postId}`
   if (!row) return
-  if (!row.automatable) {
+  // Drafts-only channels always wait; automatable ones wait until auto-publish is on or a person approves.
+  if (!row.automatable || (!row.auto_publish && !opts.approved)) {
     await sql`update posts set status = 'waiting' where id = ${postId}`
     return
   }

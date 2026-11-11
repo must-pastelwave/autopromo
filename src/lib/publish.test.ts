@@ -97,3 +97,30 @@ test('maintenance: expires old waiting, retries 5xx once, leaves 4xx, syncs publ
   expect((await get(f5again.id)).status).toBe('failed')
   expect((await get(due.id)).status).toBe('published')
 })
+
+test('approve-first channel: reviewed post waits, approval schedules it', async () => {
+  const { productId, channelId } = await seed({ auto: false })
+  const f = zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
+  const p = await insertPost(productId, channelId)
+  await publish(p.id)
+  expect((await get(p.id)).status).toBe('waiting')
+  expect(f).not.toHaveBeenCalled()
+  await publish(p.id, { approved: true })
+  expect((await get(p.id))).toMatchObject({ status: 'scheduled', zernio_post_id: 'z1' })
+})
+
+test('drafts-only channel stays waiting even when approved', async () => {
+  const { productId, channelId } = await seed({ platform: 'naver_blog', automatable: false })
+  const f = zernio(201, {})
+  const p = await insertPost(productId, channelId)
+  await publish(p.id, { approved: true })
+  expect((await get(p.id)).status).toBe('waiting')
+  expect(f).not.toHaveBeenCalled()
+})
+
+test('new channels default to approve-first and products to 1 Threads post a day', async () => {
+  const [p] = await sql`insert into products (slug, url, name, audience) values ('x', 'https://x.kr/', 'X', 'a') returning threads_per_day, id`
+  const [c] = await sql`insert into channels (product_id, platform, automatable) values (${p.id}, 'threads', true) returning auto_publish`
+  expect(p.threads_per_day).toBe(1)
+  expect(c.auto_publish).toBe(false)
+})

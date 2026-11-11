@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db'
 import { currentProduct } from '@/lib/current'
 import { listAccounts } from '@/lib/zernio'
-import { setChannelAccount, toggleChannel } from '../actions'
+import { setChannelAccount, toggleAutoPublish, toggleChannel } from '../actions'
 
 export default async function Channels() {
   const p = await currentProduct()
@@ -13,9 +13,9 @@ export default async function Channels() {
   return (
     <>
       {zernioError && <div className="notice">Can&apos;t reach Zernio ({zernioError}). Check ZERNIO_API_KEY.</div>}
-      <p className="muted">Connect accounts in Zernio yourself (never by script), then pick them here. New channels post at half volume for 14 days.</p>
+      <p className="muted">Connect accounts in Zernio yourself (never by script), then pick them here. Every channel starts as &ldquo;Approve first&rdquo;: posts wait for you. Switch to Auto once posts go through cleanly. Keep new accounts at 1 post a day (Settings).</p>
       <div className="scroll"><table>
-        <thead><tr><th>Channel</th><th>On</th><th>Zernio account</th><th>Status</th></tr></thead>
+        <thead><tr><th>Channel</th><th>On</th><th>Auto-publish</th><th>Zernio account</th><th>Status</th></tr></thead>
         <tbody>
           {channels.map(c => (
             <tr key={c.id}>
@@ -25,6 +25,14 @@ export default async function Channels() {
                   <input type="hidden" name="id" value={c.id} /><input type="hidden" name="enabled" value={String(!c.enabled)} />
                   <button type="submit" className={c.enabled ? '' : 'ghost'} aria-pressed={c.enabled}>{c.enabled ? 'On' : 'Off'}</button>
                 </form>
+              </td>
+              <td>
+                {c.automatable ? (
+                  <form action={toggleAutoPublish}>
+                    <input type="hidden" name="id" value={c.id} /><input type="hidden" name="auto" value={String(!c.auto_publish)} />
+                    <button type="submit" className={c.auto_publish ? '' : 'ghost'} aria-pressed={c.auto_publish}>{c.auto_publish ? 'Auto' : 'Approve first'}</button>
+                  </form>
+                ) : <span className="muted">—</span>}
               </td>
               <td>
                 {c.automatable ? (

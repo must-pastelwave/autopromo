@@ -4,12 +4,12 @@ export async function resetDb() {
   await sql`truncate clicks, posts, channels, products restart identity cascade`
 }
 
-export async function seed(o: { platform?: string; automatable?: boolean; account?: string | null } = {}) {
+export async function seed(o: { platform?: string; automatable?: boolean; account?: string | null; auto?: boolean } = {}) {
   const [p] = await sql`insert into products (slug, url, name, audience, fact_sheet)
     values ('l2u', 'https://l2u.co.kr/', 'L2U', '여행자', ${sql.json([{ fact: '회원 할인가 제공', source_url: 'https://l2u.co.kr/' }, { fact: '국내외 호텔 예약', source_url: 'https://l2u.co.kr/' }])})
     returning id`
-  const [c] = await sql`insert into channels (product_id, platform, automatable, enabled, zernio_account_id)
-    values (${p.id}, ${o.platform ?? 'threads'}, ${o.automatable ?? true}, true, ${o.account === undefined ? 'acc1' : o.account}) returning id`
+  const [c] = await sql`insert into channels (product_id, platform, automatable, enabled, zernio_account_id, auto_publish)
+    values (${p.id}, ${o.platform ?? 'threads'}, ${o.automatable ?? true}, true, ${o.account === undefined ? 'acc1' : o.account}, ${o.auto ?? true}) returning id`
   return { productId: p.id as number, channelId: c.id as number }
 }
 

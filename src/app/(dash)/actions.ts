@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { sql } from '@/lib/db'
 import { PRODUCT_COOKIE, requireOwner } from '@/lib/current'
 import { parseFactLines, replaceFacts } from '@/lib/facts'
+import { publish } from '@/lib/publish'
 
 const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok', 'linkedin', 'bluesky']
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
@@ -64,6 +65,21 @@ export async function toggleChannel(f: FormData) {
   const id = Number(s(f, 'id')), on = s(f, 'enabled') === 'true'
   await sql`update channels set enabled = ${on}, started_at = case when ${on} then coalesce(started_at, now()) else started_at end where id = ${id}`
   revalidatePath('/channels')
+}
+
+export async function toggleAutoPublish(f: FormData) {
+  await requireOwner()
+  await sql`update channels set auto_publish = ${s(f, 'auto') === 'true'} where id = ${Number(s(f, 'id'))} and automatable`
+  revalidatePath('/channels')
+}
+
+/** A person approved a reviewed post on an approve-first channel: schedule it in Zernio. */
+export async function approveWaiting(f: FormData) {
+  await requireOwner()
+  const id = Number(s(f, 'id'))
+  const [p] = await sql`select p.id from posts p join channels c on c.id = p.channel_id where p.id = ${id} and p.status = 'waiting' and c.automatable`
+  if (p) await publish(id, { approved: true })
+  revalidatePath('/', 'layout')
 }
 
 export async function setChannelAccount(f: FormData) {

@@ -3,12 +3,14 @@ create table if not exists products (
   audience text not null, language text not null default 'ko', timezone text not null default 'Asia/Seoul',
   tone_notes text not null default '', banned_words text[] not null default '{}',
   fact_sheet jsonb not null default '[]',   -- [{fact, source_url}]
-  playbook text not null default '', ig_per_day int not null default 1, threads_per_day int not null default 2,
+  playbook text not null default '', ig_per_day int not null default 1, threads_per_day int not null default 1,
   active boolean not null default true, created_at timestamptz not null default now());
 create table if not exists channels (
   id serial primary key, product_id int not null references products, platform text not null,
   zernio_account_id text, enabled boolean not null default false, automatable boolean not null,
-  started_at timestamptz, needs_reconnect boolean not null default false, unique (product_id, platform));
+  started_at timestamptz, needs_reconnect boolean not null default false,
+  auto_publish boolean not null default false,   -- approve-first until the owner turns this on
+  unique (product_id, platform));
 create table if not exists posts (
   id serial primary key, product_id int not null references products, channel_id int not null references channels,
   client_key text not null, kind text not null check (kind in ('carousel','text')),
@@ -22,3 +24,7 @@ create table if not exists posts (
   unique (product_id, client_key));
 create table if not exists clicks (id bigserial primary key, post_id int not null references posts, at timestamptz not null default now());
 create index if not exists clicks_post on clicks(post_id);
+
+-- Upgrades for databases created before these columns existed (safe to re-run).
+alter table channels add column if not exists auto_publish boolean not null default false;
+alter table products alter column threads_per_day set default 1;

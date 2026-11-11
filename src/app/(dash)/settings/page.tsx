@@ -12,7 +12,7 @@ function ProductForm({ p }: { p?: Record<string, any> }) {
         <label>Language<input name="language" defaultValue={p?.language ?? 'ko'} size={6} /></label>
         <label>Timezone<input name="timezone" defaultValue={p?.timezone ?? 'Asia/Seoul'} /></label>
         <label>Instagram / day<input name="ig_per_day" type="number" min={1} max={10} defaultValue={p?.ig_per_day ?? 1} /></label>
-        <label>Threads / day<input name="threads_per_day" type="number" min={1} max={10} defaultValue={p?.threads_per_day ?? 2} /></label>
+        <label>Threads / day<input name="threads_per_day" type="number" min={1} max={10} defaultValue={p?.threads_per_day ?? 1} /></label>
       </div>
       <label>Tone notes<textarea name="tone_notes" rows={3} defaultValue={p?.tone_notes} placeholder="정중하고 차분하게, 정보 위주로" /></label>
       <label>Extra banned words (one per line)<textarea name="banned_words" rows={3} defaultValue={p?.banned_words?.join('\n')} /></label>
