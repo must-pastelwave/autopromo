@@ -1,0 +1,57 @@
+# autopromo agents. Runs Claude Code with YOUR Anthropic API key (Settings → Secrets → ANTHROPIC_API_KEY).
+# Times are UTC: 21:00 UTC = 06:00 KST. Change them freely.
+name: agents
+
+on:
+  schedule:
+    - cron: "0 21 * * 1"   # researcher: Tue 06:00 KST
+    - cron: "0 22 * * *"   # writer:     daily 07:00 KST
+    - cron: "0 23 * * *"   # reviewer:   daily 08:00 KST
+    - cron: "0 11 * * 0"   # analyst:    Sun 20:00 KST
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: Which agent to run now
+        type: choice
+        options: [researcher, writer, reviewer, analyst]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: autopromo-agents   # one agent at a time; the app assumes it
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Pick the agent
+        id: pick
+        run: |
+          case "${{ github.event.schedule }}" in
+            "0 21 * * 1") a=researcher; t=40 ;;
+            "0 22 * * *") a=writer;     t=80 ;;
+            "0 23 * * *") a=reviewer;   t=50 ;;
+            "0 11 * * 0") a=analyst;    t=20 ;;
+            *) a="${{ inputs.agent }}"; case "$a" in researcher) t=40;; writer) t=80;; reviewer) t=50;; *) t=20;; esac ;;
+          esac
+          echo "agent=$a" >> "$GITHUB_OUTPUT"; echo "turns=$t" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          AGENT_TOKEN: ${{ secrets.AGENT_TOKEN }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are the autopromo ${{ steps.pick.outputs.agent }}.
+            Read agents/common.md, then agents/${{ steps.pick.outputs.agent }}.md, and do that job now.
+          # The turn cap keeps a confused run from running up the bill.
+          claude_args: |
+            --model ${{ vars.AGENT_MODEL || 'claude-opus-5-5' }}
+            --max-turns ${{ steps.pick.outputs.turns }}
+            --allowedTools Read,Write,WebFetch,Bash(curl:*)
