@@ -1,9 +1,11 @@
+import { connection } from 'next/server'
 import { sql } from '@/lib/db'
 import { currentProduct } from '@/lib/current'
 import { selectProduct } from './actions'
 import { Tabs } from './tabs'
 
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
+  await connection() // always per request: never touch the database at build time
   const products = await sql`select slug, name from products order by id`
   const current = await currentProduct()
   const [{ n }] = current
