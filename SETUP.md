@@ -43,6 +43,8 @@ In your fork on GitHub → **Settings → Secrets and variables → Actions**:
 - Secrets: `ANTHROPIC_API_KEY`, `APP_URL`, `AGENT_TOKEN` (same value as in Vercel).
 - Variable (optional): `AGENT_MODEL` (default `claude-opus-5-5`; `claude-sonnet-5-5` costs about half).
 
+**Heads-up:** GitHub turns off scheduled workflows after 60 days with no commits to the repo. If the Actions tab says the workflow is disabled, click **Enable workflow** (or push any small commit once a month).
+
 Then **Actions → agents → Run workflow → researcher** once to build the fact sheet. Check it in Settings and fix anything wrong. The schedule takes over from there. Actions must be enabled on forks (Actions tab → enable).
 
 The agents use your **API key**, never a Claude subscription login. Anthropic doesn't allow third-party tools to run on claude.ai logins.

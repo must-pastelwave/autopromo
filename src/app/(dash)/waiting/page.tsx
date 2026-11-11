@@ -29,7 +29,7 @@ export default async function Waiting() {
             {x.slides.length > 0 && (
               <div className="thumbs" style={{ marginBottom: 8 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {x.slides.map((_: unknown, i: number) => <a key={i} href={`/api/slide/${x.id}/${i}.png`} target="_blank"><img src={`/api/slide/${x.id}/${i}.png`} alt={`slide ${i + 1}`} loading="lazy" /></a>)}
+                {x.slides.map((_: unknown, i: number) => <a key={i} href={`/api/slide/${x.id}/${i}.png?r=${x.revision}`} target="_blank"><img src={`/api/slide/${x.id}/${i}.png?r=${x.revision}`} alt={`slide ${i + 1}`} loading="lazy" /></a>)}
               </div>
             )}
             <div className="row">

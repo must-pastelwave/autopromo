@@ -15,12 +15,13 @@ function captionFor(platform: string, caption: string, code: string): string {
 /** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
 export async function publish(postId: number, opts: { retry?: boolean; approved?: boolean } = {}): Promise<void> {
   const [row] = await sql`
-    select p.*, c.platform, c.automatable, c.auto_publish, c.zernio_account_id, c.started_at, pr.timezone, pr.ig_per_day, pr.threads_per_day
+    select p.*, c.platform, c.enabled, c.automatable, c.auto_publish, c.zernio_account_id, c.started_at, pr.timezone, pr.ig_per_day, pr.threads_per_day
     from posts p join channels c on c.id = p.channel_id join products pr on pr.id = p.product_id
     where p.id = ${postId}`
   if (!row) return
   // Drafts-only channels always wait; automatable ones wait until auto-publish is on or a person approves.
-  if (!row.automatable || (!row.auto_publish && !opts.approved)) {
+  // A channel switched Off is the owner's kill switch: park the post, never send it.
+  if (!row.enabled || !row.automatable || (!row.auto_publish && !opts.approved)) {
     await sql`update posts set status = 'waiting' where id = ${postId}`
     return
   }
@@ -29,6 +30,7 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
     if (NEEDS_RECONNECT.test(msg)) await sql`update channels set needs_reconnect = true where id = ${row.channel_id}`
   }
   if (!row.zernio_account_id) return fail('channel not connected to Zernio')
+  if (!appUrl()) return fail('APP_URL is not set')
 
   const taken = await sql`
     select scheduled_for from posts
@@ -45,7 +47,8 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
     const { zernioId } = await createPost({
       postId, accountId: row.zernio_account_id, platform: row.platform,
       caption: captionFor(row.platform, row.caption, row.link_code),
-      mediaUrls: slides.map((_, i) => `${appUrl()}/api/slide/${postId}/${i}.png`),
+      // ?r= busts the 24h image cache when a revised post reuses the same id.
+      mediaUrls: slides.map((_, i) => `${appUrl()}/api/slide/${postId}/${i}.png?r=${row.revision}`),
       scheduledFor: when,
     })
     await sql`update posts set status = 'scheduled', scheduled_for = ${when}, zernio_post_id = ${zernioId}, error = null where id = ${postId}`
@@ -63,7 +66,8 @@ export async function runMaintenance(): Promise<void> {
   const retry = await sql`
     select id from posts where status = 'failed'
       and error is not null and error not like 'retried:%' and error !~ '^zernio 4[0-9][0-9]'`
-  for (const r of retry) await publish(r.id, { retry: true })
+  // Only posts that already got past approval can be 'failed', so the retry counts as approved.
+  for (const r of retry) await publish(r.id, { retry: true, approved: true })
 
   const due = await sql`
     select id, zernio_post_id from posts

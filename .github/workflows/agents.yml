@@ -47,6 +47,7 @@ jobs:
           AGENT_TOKEN: ${{ secrets.AGENT_TOKEN }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
           prompt: |
             You are the autopromo ${{ steps.pick.outputs.agent }}.
             Read agents/common.md, then agents/${{ steps.pick.outputs.agent }}.md, and do that job now.
@@ -54,4 +55,4 @@ jobs:
           claude_args: |
             --model ${{ vars.AGENT_MODEL || 'claude-opus-5-5' }}
             --max-turns ${{ steps.pick.outputs.turns }}
-            --allowedTools Read,Write,WebFetch,Bash(curl:*)
+            --allowedTools "Read,Write,WebFetch,Bash(curl:*)"

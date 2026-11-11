@@ -32,7 +32,7 @@ export default async function Posts({ searchParams }: { searchParams: Promise<{ 
                 {x.slides.length > 0 && (
                   <div className="thumbs">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {x.slides.map((_: unknown, i: number) => <img key={i} src={`/api/slide/${x.id}/${i}.png`} alt={`slide ${i + 1}`} loading="lazy" />)}
+                    {x.slides.map((_: unknown, i: number) => <img key={i} src={`/api/slide/${x.id}/${i}.png?r=${x.revision}`} alt={`slide ${i + 1}`} loading="lazy" />)}
                   </div>
                 )}
               </td>
