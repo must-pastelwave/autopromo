@@ -7,6 +7,7 @@ import { PRODUCT_COOKIE, requireOwner } from '@/lib/current'
 import { parseFactLines, replaceFacts } from '@/lib/facts'
 import { publish } from '@/lib/publish'
 import { dispatchAgent } from '@/lib/github'
+import { requestRun } from '@/lib/runs'
 
 const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok', 'linkedin', 'bluesky']
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
@@ -43,6 +44,7 @@ export async function saveProduct(f: FormData) {
     const picked = f.getAll('platform').map(String)
     if (picked.length) await sql`update channels set enabled = true, started_at = now() where product_id = ${p.id} and platform = any(${picked})`
     ;(await cookies()).set(PRODUCT_COOKIE, p.slug, { path: '/', sameSite: 'lax', maxAge: 60 * 60 * 24 * 365 })
+    await requestRun(p.id, 'researcher planner')
     const started = await dispatchAgent('auto')
     revalidatePath('/', 'layout')
     redirect(`/?msg=${encodeURIComponent(started

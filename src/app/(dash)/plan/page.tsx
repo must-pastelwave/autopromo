@@ -4,6 +4,7 @@ import { currentProduct } from '@/lib/current'
 import { planWithItems } from '@/lib/plans'
 import { journeyFor } from '@/lib/journey'
 import { Page } from '../sections/frame'
+import { RunStatus } from '../journey/run-status'
 import { addItem, confirm, removeItem, revisePlan, saveItem, startPlanning } from './actions'
 
 type Plan = NonNullable<Awaited<ReturnType<typeof planWithItems>>>
@@ -119,6 +120,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
   return (
     <Page title="Plan" msg={msg}>
+      <RunStatus productId={p.id} />
       <p className="muted">Every post comes from a confirmed plan: a 4-week calendar the planner drafts and you agree on. Edit items, ask for changes, then confirm.</p>
 
       {!p.active && <div className="notice">{p.name} is paused, so its agents don&apos;t run. Switch to another product in the sidebar.</div>}
@@ -141,7 +143,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         <section>
           <h2>{draft.status === 'revising' ? 'Being revised' : 'Draft for your confirmation'} · {draft.starts} → {draft.ends}{draft.revision > 0 ? ` · revision ${draft.revision}` : ''}</h2>
           {draft.status === 'revising'
-            ? <div className="notice">The planner is working on your feedback: &ldquo;{draft.feedback}&rdquo;. This takes a few minutes; refresh to see the new version.</div>
+            ? <div className="notice">The planner is working on your feedback: &ldquo;{draft.feedback}&rdquo;. The new version appears here by itself (see the status above).</div>
             : <>
               <Strategy s={draft.strategy} />
               <Calendar plan={draft} platforms={platforms} editable />

@@ -4,6 +4,7 @@ import { Page } from './sections/frame'
 import { currentProduct } from '@/lib/current'
 import { journeyFor } from '@/lib/journey'
 import { Stepper } from './journey/stepper'
+import { RunStatus } from './journey/run-status'
 import { chooseChannels } from './journey/actions'
 import { startPlanning } from './plan/actions'
 import { ProductForm } from './sections/settings'
@@ -62,6 +63,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
     <Page title={p.name} msg={msg}>
       {paused}
       <Stepper step="research" />
+      <RunStatus productId={p.id} />
       <div className="card">
         <h2 style={{ marginTop: 0 }}>2. Research</h2>
         <p>The AI is reading <a href={p.url} target="_blank" rel="noreferrer">{p.url}</a>: what the product is, who it&apos;s for, prices and conditions, and the rules posts must follow. It usually starts within 15–30 minutes and takes a few more.</p>
@@ -98,6 +100,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
     <Page title={p.name} msg={msg}>
       {paused}
       <Stepper step="plan" />
+      <RunStatus productId={p.id} />
       <div className="card">
         <h2 style={{ marginTop: 0 }}>4. Agree on the plan</h2>
         {!j.draft && <>
@@ -148,6 +151,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
     <Page title={p.name} msg={msg}>
       {paused}
       <Stepper step="running" />
+      <RunStatus productId={p.id} />
       {j.draft?.status === 'draft' && <div className="notice"><b>Your next plan is ready</b> (from {j.draft.starts}). <Link href="/plan">Review and confirm it</Link> so the campaign continues.</div>}
       {j.unconnected.length > 0 && <div className="notice"><b>Connect {j.unconnected.join(', ')}</b> so those posts can go out; they wait until then. <Link href="/channels">Connect in Channels</Link>.</div>}
 

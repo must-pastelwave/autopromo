@@ -5,9 +5,11 @@ import { sql } from '@/lib/db'
 import { requireOwner } from '@/lib/current'
 import { dispatchAgent } from '@/lib/github'
 import { confirmPlan, formatFor } from '@/lib/plans'
+import { requestRun } from '@/lib/runs'
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
 const back = (msg: string): never => redirect(`/plan?msg=${encodeURIComponent(msg)}`)
+// startPlanning is also used from Home's status box
 const LATER = 'It starts by itself within about 15–30 minutes.'
 
 /** Research the site (no facts yet) or draft a plan, now. */
@@ -18,6 +20,7 @@ export async function startPlanning(f: FormData) {
   if (!p.active) back('This product is paused, so its agents don\'t run.')
   const agent = p.n > 0 ? 'planner' : 'researcher'
   await sql`update products set agent_tried = agent_tried - ${agent}::text where id = ${Number(s(f, 'product'))}`
+  await requestRun(Number(s(f, 'product')), agent === 'researcher' ? 'researcher planner' : 'planner')
   const started = await dispatchAgent('auto')
   back(started ? `The ${agent} has started; refresh in a few minutes.` : `The ${agent} is queued. ${LATER}`)
 }
@@ -28,7 +31,10 @@ export async function revisePlan(f: FormData) {
   const feedback = s(f, 'feedback').slice(0, 4000)
   if (!feedback) back('Write what to change first.')
   const [p] = await sql`update plans set status = 'revising', feedback = ${feedback} where id = ${Number(s(f, 'plan'))} and status in ('draft', 'revising') returning product_id`
-  if (p) await sql`update products set agent_tried = agent_tried - 'planner' where id = ${p.product_id}`
+  if (p) {
+    await sql`update products set agent_tried = agent_tried - 'planner' where id = ${p.product_id}`
+    await requestRun(p.product_id, 'planner')
+  }
   if (!p) back('Only a draft plan can be revised.')
   const started = await dispatchAgent('auto')
   back(started ? 'The planner is revising the plan; refresh in a few minutes.' : `Feedback saved. ${LATER}`)
@@ -37,7 +43,10 @@ export async function revisePlan(f: FormData) {
 /** Owner and AI agree: the campaign runs from this plan, publishing automatically once the AI reviewer passes each post. */
 export async function confirm(f: FormData) {
   await requireOwner()
-  if (!(await confirmPlan(Number(s(f, 'plan'))))) back('Only a draft (not one being revised) can be confirmed.')
+  const planId = Number(s(f, 'plan'))
+  if (!(await confirmPlan(planId))) back('Only a draft (not one being revised) can be confirmed.')
+  const [pl] = await sql`select product_id from plans where id = ${planId}`
+  await requestRun(pl.product_id, 'writer reviewer')
   await dispatchAgent('auto')
   revalidatePath('/', 'layout')
   redirect(`/?msg=${encodeURIComponent('Plan confirmed: the campaign is running. Posts are written, reviewed and published on their days.')}`)

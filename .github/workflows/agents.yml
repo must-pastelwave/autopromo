@@ -67,10 +67,19 @@ jobs:
             echo "research=$research"; echo "plan=$(echo $plan $research)"; echo "kickoff=$kickoff"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Tell the app the run started
+        if: steps.pick.outputs.jobs != ''
+        run: |
+          body=$(jq -nc --arg jobs "${{ steps.pick.outputs.jobs }}" --arg url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --argjson products "[$(echo ${{ steps.pick.outputs.plan }} | tr ' ' ',')]" --argjson plans "[$(echo ${{ steps.pick.outputs.kickoff }} | tr ' ' ',')]" \
+            '{gh_run_id: ${{ github.run_id }}, jobs: $jobs, product_ids: $products, plan_ids: $plans, status: "running", url: $url}')
+          curl -sS -X POST -H "Authorization: Bearer $AGENT_TOKEN" -H 'content-type: application/json' -d "$body" "$APP_URL/api/agent/runs" > /dev/null || true
+
       - uses: actions/checkout@v4
         if: steps.pick.outputs.jobs != ''
 
       - uses: anthropics/claude-code-action@v1
+        id: claude
         if: steps.pick.outputs.jobs != ''
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -94,3 +103,8 @@ jobs:
           for id in ${{ steps.pick.outputs.research }}; do post "products/$id/tried" '{"agent":"researcher"}'; done
           case " ${{ steps.pick.outputs.jobs }} " in *" planner "*) for id in ${{ steps.pick.outputs.plan }}; do post "products/$id/tried" '{"agent":"planner"}'; done ;; esac
           for id in ${{ steps.pick.outputs.kickoff }}; do post "plans/$id/kickoff" '{}'; done
+          status=$([ "${{ steps.claude.outcome }}" = success ] && echo done || echo failed)
+          body=$(jq -nc --arg jobs "${{ steps.pick.outputs.jobs }}" --arg st "$status" \
+            --argjson products "[$(echo ${{ steps.pick.outputs.plan }} | tr ' ' ',')]" --argjson plans "[$(echo ${{ steps.pick.outputs.kickoff }} | tr ' ' ',')]" \
+            '{gh_run_id: ${{ github.run_id }}, jobs: $jobs, product_ids: $products, plan_ids: $plans, status: $st}')
+          post runs "$body"

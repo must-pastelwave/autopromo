@@ -76,3 +76,9 @@ alter table posts add column if not exists plan_item_id int references plan_item
 -- The journey: when each agent last tried a product (bounds retries), and when a confirmed plan was kicked off.
 alter table products add column if not exists agent_tried jsonb not null default '{}';
 alter table plans add column if not exists kicked_off_at timestamptz;
+-- Agent runs, so the owner can see queued → running → done with times instead of guessing.
+create table if not exists agent_runs (
+  id serial primary key, gh_run_id bigint unique, jobs text not null, product_ids int[] not null default '{}',
+  status text not null check (status in ('queued','running','done','failed')),
+  url text, requested_at timestamptz not null default now(), started_at timestamptz, finished_at timestamptz);
+create index if not exists agent_runs_products on agent_runs using gin (product_ids);

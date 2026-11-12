@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db'
 
 export async function resetDb() {
-  await sql`truncate clicks, posts, plan_items, plans, channels, products restart identity cascade`
+  await sql`truncate clicks, posts, plan_items, plans, channels, products, agent_runs restart identity cascade`
 }
 
 export async function seed(o: { platform?: string; automatable?: boolean; account?: string | null; auto?: boolean } = {}) {
