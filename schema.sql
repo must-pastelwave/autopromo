@@ -13,7 +13,7 @@ create table if not exists channels (
   unique (product_id, platform));
 create table if not exists posts (
   id serial primary key, product_id int not null references products, channel_id int not null references channels,
-  client_key text not null, kind text not null check (kind in ('carousel','text')),
+  client_key text not null, kind text not null check (kind in ('carousel','text','video')),
   caption text not null, slides jsonb not null default '[]',   -- [{text, photo_url, photo_credit}]
   topic text not null, format_tag text not null, is_experiment boolean not null default false,
   facts_used int[] not null default '{}',   -- indexes into fact_sheet
@@ -34,3 +34,5 @@ create index if not exists conversions_post on conversions(post_id);
 -- Upgrades for databases created before these columns existed (safe to re-run).
 alter table channels add column if not exists auto_publish boolean not null default false;
 alter table products alter column threads_per_day set default 1;
+alter table posts drop constraint if exists posts_kind_check;
+alter table posts add constraint posts_kind_check check (kind in ('carousel','text','video'));

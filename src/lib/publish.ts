@@ -1,15 +1,45 @@
 import { sql } from './db'
 import { nextSlot } from './slots'
-import { createPost, getPost } from './zernio'
+import { createPost, getPost, uploadMedia } from './zernio'
+import { renderVideo } from './video'
 import { trackUse } from './photos'
 
 const IG_LINK_NOTE = '프로필 링크에서 확인하세요'
 const NEEDS_RECONNECT = /token|reconnect|unauthori[sz]ed|expired|permission|auth/i
 const appUrl = () => (process.env.APP_URL ?? '').replace(/\/$/, '')
 
+// These apps don't make caption links clickable; the profile bio links to /l/<slug> instead.
+const LINK_IN_BIO = ['instagram', 'tiktok', 'youtube']
+
 function captionFor(platform: string, caption: string, code: string): string {
-  // Instagram captions can't hold clickable links; the bio links to /l/<slug>.
-  return platform === 'instagram' ? `${caption}\n\n${IG_LINK_NOTE}` : `${caption}\n\n${appUrl()}/go/${code}`
+  return LINK_IN_BIO.includes(platform) ? `${caption}\n\n${IG_LINK_NOTE}` : `${caption}\n\n${appUrl()}/go/${code}`
+}
+
+/** Per-platform fields Zernio needs for video posts. */
+function videoFields(platform: string, caption: string) {
+  if (platform === 'youtube') {
+    return { platformSpecificData: { title: caption.split('\n')[0].trim().slice(0, 100), visibility: 'public', madeForKids: false } }
+  }
+  if (platform === 'tiktok') {
+    // Consent flags: the owner reviewed this channel's posts and chose auto-publish (or approved this one).
+    // ponytail: commercial disclosure fixed to brand_organic; make it a product setting when promoting paid partners.
+    return { extra: { tiktokSettings: {
+      privacy_level: 'PUBLIC_TO_EVERYONE', allow_comment: true, allow_duet: false, allow_stitch: false,
+      content_preview_confirmed: true, express_consent_given: true, video_made_with_ai: true,
+      commercialContentType: 'brand_organic',
+    } } }
+  }
+  return {}
+}
+
+/** Fetch the post's rendered slides, make the mp4, and upload it to Zernio. */
+async function videoUrl(postId: number, slideUrls: string[], revision: number): Promise<string> {
+  const pngs = await Promise.all(slideUrls.map(async u => {
+    const r = await fetch(u)
+    if (!r.ok) throw new Error(`slide ${u} returned ${r.status}`)
+    return Buffer.from(await r.arrayBuffer())
+  }))
+  return uploadMedia(await renderVideo(pngs), `post-${postId}-r${revision}.mp4`, 'video/mp4')
 }
 
 /** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
@@ -43,13 +73,16 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
     startedAt: row.started_at, taken: taken.map(t => t.scheduled_for),
   })
   const slides: { photo_track?: string }[] = row.slides ?? []
+  // ?r= busts the 24h image cache when a revised post reuses the same id.
+  const slideUrls = slides.map((_, i) => `${appUrl()}/api/slide/${postId}/${i}.png?r=${row.revision}`)
+  const isVideo = row.kind === 'video'
   try {
     const { zernioId } = await createPost({
       postId, accountId: row.zernio_account_id, platform: row.platform,
       caption: captionFor(row.platform, row.caption, row.link_code),
-      // ?r= busts the 24h image cache when a revised post reuses the same id.
-      mediaUrls: slides.map((_, i) => `${appUrl()}/api/slide/${postId}/${i}.png?r=${row.revision}`),
+      mediaUrls: isVideo ? [await videoUrl(postId, slideUrls, row.revision)] : slideUrls,
       scheduledFor: when,
+      ...(isVideo ? { mediaType: 'video' as const, ...videoFields(row.platform, row.caption) } : {}),
     })
     await sql`update posts set status = 'scheduled', scheduled_for = ${when}, zernio_post_id = ${zernioId}, error = null where id = ${postId}`
     await sql`update channels set needs_reconnect = false where id = ${row.channel_id}`

@@ -2,9 +2,11 @@ import { findBanned } from './rules'
 
 export type Slide = { text: string; photo_url?: string; photo_credit?: string; photo_track?: string }
 export type PostInput = {
-  product_id: number; channel_id: number; client_key: string; kind: 'carousel' | 'text'
+  product_id: number; channel_id: number; client_key: string; kind: 'carousel' | 'text' | 'video'
   caption: string; slides: Slide[]; topic: string; format_tag: string; is_experiment: boolean; facts_used: number[]
 }
+
+export const VIDEO_PLATFORMS = ['tiktok', 'youtube']
 
 const str = (v: unknown, max = 5000) => typeof v === 'string' && v.trim().length > 0 && v.length <= max
 const https = (v: unknown) => v === undefined || v === null || (typeof v === 'string' && /^https:\/\/[^\s]+$/.test(v))
@@ -14,7 +16,7 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
   if (!b || typeof b !== 'object') return 'body must be a JSON object'
   if (!Number.isInteger(b.product_id) || !Number.isInteger(b.channel_id)) return 'product_id and channel_id must be integers'
   if (!str(b.client_key, 200)) return 'client_key required'
-  if (b.kind !== 'carousel' && b.kind !== 'text') return "kind must be 'carousel' or 'text'"
+  if (!['carousel', 'text', 'video'].includes(b.kind)) return "kind must be 'carousel', 'text' or 'video'"
   if (!str(b.caption, 2200)) return 'caption required (max 2200 chars)'
   if (!str(b.topic, 200) || !str(b.format_tag, 100)) return 'topic and format_tag required'
   const slides = b.slides ?? []
@@ -27,6 +29,10 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
   if (b.kind === 'carousel' && (slides.length < 5 || slides.length > 7)) return 'a carousel needs 5–7 slides'
   if (b.kind === 'text' && slides.length > 1) return 'a text post has at most 1 image'
   if (ctx.platform === 'instagram' && b.kind !== 'carousel') return 'instagram posts must be carousels'
+  const isVideoChannel = VIDEO_PLATFORMS.includes(ctx.platform)
+  if (isVideoChannel !== (b.kind === 'video')) return `video posts are for ${VIDEO_PLATFORMS.join(' and ')} only, and those take only video`
+  if (b.kind === 'video' && (slides.length < 3 || slides.length > 8)) return 'a video needs 3–8 slides'
+  if (ctx.platform === 'youtube' && b.caption.split('\n')[0].trim().length > 100) return 'youtube: the first caption line is the title, max 100 chars'
   const facts = b.facts_used ?? []
   if (!Array.isArray(facts) || facts.some((i: unknown) => !Number.isInteger(i) || (i as number) < 0 || (i as number) >= ctx.factCount)) {
     return 'facts_used must be indexes into the fact sheet'

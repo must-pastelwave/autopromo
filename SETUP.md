@@ -1,6 +1,6 @@
 # Setup (about 30 minutes)
 
-You'll need: a GitHub account, a Vercel account, an Anthropic API key, a Zernio account, and the social accounts you'll post from.
+You'll need: a GitHub account, a Vercel account, a Claude Pro/Max subscription, a Zernio account, and the social accounts you'll post from.
 
 ## 1. Deploy the app
 
@@ -17,7 +17,7 @@ You'll need: a GitHub account, a Vercel account, an Anthropic API key, a Zernio 
 | `CONVERSION_TOKEN` | another long random string (for your product site, step 6) |
 | `CRON_SECRET` | another long random string |
 | `ZERNIO_API_KEY` | from Zernio (step 2) |
-| `UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY` | free keys from unsplash.com/developers and pexels.com/api |
+| `UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY` | optional, free keys from unsplash.com/developers and pexels.com/api. Without them slides are text on a plain background |
 | `APP_URL` | your Vercel URL, e.g. `https://autopromo-you.vercel.app` |
 
 6. Redeploy. Open the URL, sign in.
@@ -30,24 +30,26 @@ You'll need: a GitHub account, a Vercel account, an Anthropic API key, a Zernio 
 
 Never sign up or log in to social accounts with scripts or automated browsers. That gets accounts banned.
 
+**You don't need the business's own accounts.** Any account you control works. The best start is **TikTok + YouTube**: both show videos to people by interest, so a brand-new account with no followers still gets seen. Make the TikTok account a **business account** (needed for a link in the bio), and don't mark the YouTube channel as made for kids. Zernio's first 2 accounts are free.
+
 ## 3. Add your product
 
 In the dashboard → **Settings → Add a product**: the URL tracked links should land on, target users, language, timezone, and extra banned words. Then **Channels**: switch on the channels you'll use and pick each one's Zernio account. Leave **Auto-publish off** for now ("Approve first").
 
-For Instagram, paste the link-in-bio URL shown in Settings into the Instagram bio.
+TikTok, YouTube and Instagram don't make links in captions clickable. Paste the bio link shown in Settings into each profile's bio once.
 
 ## 4. Turn on the agents
 
 In your fork on GitHub → **Settings → Secrets and variables → Actions**:
 
-- Secrets: `ANTHROPIC_API_KEY`, `APP_URL`, `AGENT_TOKEN` (same value as in Vercel).
+- Secrets: `CLAUDE_CODE_OAUTH_TOKEN` (run `claude setup-token` in your terminal and paste what it prints), `APP_URL`, `AGENT_TOKEN` (same value as in Vercel).
 - Variable (optional): `AGENT_MODEL` (default `claude-opus-5-5`; `claude-sonnet-5-5` costs about half).
 
 **Heads-up:** GitHub turns off scheduled workflows after 60 days with no commits to the repo. If the Actions tab says the workflow is disabled, click **Enable workflow** (or push any small commit once a month).
 
 Then **Actions → agents → Run workflow → researcher** once to build the fact sheet. Check it in Settings and fix anything wrong. The schedule takes over from there. Actions must be enabled on forks (Actions tab → enable).
 
-The agents use your **API key**, never a Claude subscription login. Anthropic doesn't allow third-party tools to run on claude.ai logins.
+The agents run on **your own** Claude subscription, in your own repo, for your own products. Runs count toward your plan's usage limits. Prefer pay-per-use? Add an `ANTHROPIC_API_KEY` secret instead.
 
 ## 5. Daily use, then hands-off
 

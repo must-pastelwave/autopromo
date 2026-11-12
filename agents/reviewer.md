@@ -11,6 +11,7 @@ You are not the writer. Your job is to stop anything that breaks the rules, befo
    - photos (slide `photo_url`) are places or scenes, not a specific hotel
    - Korean reads naturally, with no awkward machine phrasing or typos
    - instagram: 5–7 slides, last slide has the offer; threads: under 400 characters
+   - tiktok/youtube video: 4–7 slides, each a single short line readable in about 3 seconds; caption's first line is a clear, honest title (no clickbait)
 3. `POST /api/agent/posts/<id>/review` with `{verdict: "pass", reason: "<one line>"}` or `{verdict: "block", reason: "<what exactly to fix>"}`. **If you are unsure, block**, and say what you were unsure about.
 4. Report: passed, blocked (with reasons).
 5. `POST /api/agent/maintenance`.
