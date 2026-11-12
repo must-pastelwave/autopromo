@@ -12,7 +12,7 @@ const WRITE_PAGE: Record<string, string> = {
 export async function WaitingSection({ p }: { p: Record<string, any> }) {
   const app = (process.env.APP_URL ?? '').replace(/\/$/, '')
   const posts = await sql`
-    select x.*, c.platform, c.automatable from posts x join channels c on c.id = x.channel_id
+    select x.*, c.platform, c.automatable, i.theme as plan_theme, to_char(i.day, 'YYYY-MM-DD') as plan_day from posts x join channels c on c.id = x.channel_id left join plan_items i on i.id = x.plan_item_id
     where x.product_id = ${p.id} and x.status = 'waiting' order by x.id`
   return (
     <>
@@ -21,7 +21,7 @@ export async function WaitingSection({ p }: { p: Record<string, any> }) {
         const text = `${x.caption}\n\n${app}/go/${x.link_code}`
         return (
           <div key={x.id} className="card" style={{ marginBottom: 12 }}>
-            <div className="muted">{x.platform} · {x.topic}{x.review_reason ? ` · reviewer: ${x.review_reason}` : ''}</div>
+            <div className="muted">{x.platform}{x.plan_day ? ` · plan ${x.plan_day} · ${x.plan_theme}` : ''} · {x.topic}{x.review_reason ? ` · reviewer: ${x.review_reason}` : ''}</div>
             <div style={{ whiteSpace: 'pre-wrap', margin: '8px 0' }}>{x.automatable ? x.caption : text}</div>
             {x.slides.length > 0 && (
               <div className="thumbs" style={{ marginBottom: 8 }}>

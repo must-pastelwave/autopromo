@@ -1,0 +1,143 @@
+import Link from 'next/link'
+import { sql } from '@/lib/db'
+import { currentProduct } from '@/lib/current'
+import { planWithItems } from '@/lib/plans'
+import { Page } from '../sections/frame'
+import { addItem, confirmPlan, removeItem, revisePlan, saveItem, startPlanning } from './actions'
+
+type Plan = NonNullable<Awaited<ReturnType<typeof planWithItems>>>
+
+const weekOf = (start: string, day: string) => Math.floor((Date.parse(day) - Date.parse(start)) / (7 * 86400_000)) + 1
+const list = (v: unknown): any[] => (Array.isArray(v) ? v : [])
+
+function Strategy({ s }: { s: Record<string, any> }) {
+  return (
+    <div className="card strategy">
+      <p><b>Goal</b> {s.goal}</p>
+      <p><b>Call to action</b> {s.cta}</p>
+      {s.audience && <p><b>Audience</b> {s.audience}</p>}
+      {list(s.channels).length > 0 && <><b>Channels</b><ul>{list(s.channels).map((c, i) => <li key={i}><b>{c.platform}</b>{c.per_week ? ` · ${c.per_week}/week` : ''}: {c.why}</li>)}</ul></>}
+      {list(s.themes).length > 0 && <><b>Themes</b><ul>{list(s.themes).map((t, i) => <li key={i}><b>{t.name}</b>: {t.why}</li>)}</ul></>}
+      {list(s.rules).length > 0 && <><b>Rules</b><ul>{list(s.rules).map((r, i) => <li key={i}>{String(r)}</li>)}</ul></>}
+    </div>
+  )
+}
+
+function Calendar({ plan, platforms, editable }: { plan: Plan; platforms: string[]; editable: boolean }) {
+  const items = plan.items as any[]
+  const weeks = [...new Set(items.map(i => weekOf(plan.starts, i.day)))]
+  return (
+    <>
+      {weeks.map(w => (
+        <div key={w}>
+          <h3>Week {w}</h3>
+          <div className="scroll"><table className="calendar">
+            <thead><tr><th>Day</th><th>Channel</th><th>Theme</th><th>Topic and angle</th><th>Status</th>{editable && <th></th>}</tr></thead>
+            <tbody>
+              {items.filter(i => weekOf(plan.starts, i.day) === w).map(i => {
+                const open = editable && i.status === 'planned'
+                const f = `it${i.id}`
+                return (
+                  <tr key={i.id}>
+                    <td>{open ? <input form={f} name="day" type="date" defaultValue={i.day} min={plan.starts} max={plan.ends} aria-label="Day" /> : i.day}</td>
+                    <td>{open ? <select form={f} name="platform" defaultValue={i.platform} aria-label="Channel">{platforms.map(p => <option key={p}>{p}</option>)}</select> : i.platform}<div className="muted">{i.format}</div></td>
+                    <td>{open ? <input form={f} name="theme" defaultValue={i.theme} aria-label="Theme" /> : i.theme}</td>
+                    <td>
+                      {open ? <>
+                        <input form={f} name="topic" defaultValue={i.topic} style={{ width: '100%' }} aria-label="Topic" />
+                        <textarea form={f} name="angle" defaultValue={i.angle} rows={2} style={{ width: '100%', marginTop: 4 }} aria-label="Angle" />
+                      </> : <><b>{i.topic}</b><div className="muted">{i.angle}</div></>}
+                      {i.facts?.length > 0 && <div className="muted">uses facts {i.facts.map((n: number) => n + 1).join(', ')}</div>}
+                    </td>
+                    <td className={`s-${i.status}`}>{i.status}</td>
+                    {editable && <td>{open && <div className="row">
+                      <form id={f} action={saveItem}><input type="hidden" name="id" value={i.id} /><button className="ghost" type="submit">Save</button></form>
+                      <form action={removeItem}><input type="hidden" name="id" value={i.id} /><button className="ghost" type="submit">Remove</button></form>
+                    </div>}</td>}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table></div>
+        </div>
+      ))}
+      {editable && (
+        <details className="add-item">
+          <summary>+ Add an item</summary>
+          <form action={addItem} className="row" style={{ marginTop: 8 }}>
+            <input type="hidden" name="plan" value={plan.id} />
+            <input name="day" type="date" min={plan.starts} max={plan.ends} required aria-label="Day" />
+            <select name="platform" aria-label="Channel">{platforms.map(p => <option key={p}>{p}</option>)}</select>
+            <input name="theme" placeholder="Theme" required aria-label="Theme" />
+            <input name="topic" placeholder="Topic" required style={{ minWidth: 240 }} aria-label="Topic" />
+            <input name="angle" placeholder="Angle (optional)" style={{ minWidth: 240 }} aria-label="Angle" />
+            <button type="submit">Add</button>
+          </form>
+        </details>
+      )}
+    </>
+  )
+}
+
+export default async function PlanPage({ searchParams }: { searchParams: Promise<{ msg?: string }> }) {
+  const msg = (await searchParams).msg
+  const p = await currentProduct()
+  if (!p) return <Page title="Plan" msg={msg}><p>No product yet. <Link href="/products/new">Add one</Link>.</p></Page>
+  const [cur] = await sql`select id from plans where product_id = ${p.id} and status = 'confirmed' and ends_on >= current_date order by starts_on limit 1`
+  const [dr] = await sql`select id from plans where product_id = ${p.id} and status in ('draft', 'revising') order by id desc limit 1`
+  const current = cur ? await planWithItems(cur.id) : null
+  const draft = dr ? await planWithItems(dr.id) : null
+  const platforms = (await sql`select platform from channels where product_id = ${p.id} order by enabled desc, id`).map(r => r.platform as string)
+  const researched = p.fact_sheet.length > 0
+
+  return (
+    <Page title="Plan" msg={msg}>
+      <p className="muted">Every post comes from a confirmed plan: a 4-week calendar the planner drafts and you agree on. Edit items, ask for changes, then confirm.</p>
+
+      {!researched && (
+        <div className="card">
+          <p>The researcher hasn&apos;t read {p.url} yet, so there are no facts to plan from.</p>
+          <form action={startPlanning}><input type="hidden" name="product" value={p.id} /><button type="submit">Research the site now</button></form>
+        </div>
+      )}
+
+      {researched && !draft && !current && (
+        <div className="card">
+          <p>No plan yet.</p>
+          <form action={startPlanning}><input type="hidden" name="product" value={p.id} /><button type="submit">Draft a plan now</button></form>
+        </div>
+      )}
+
+      {draft && (
+        <section>
+          <h2>{draft.status === 'revising' ? 'Being revised' : 'Draft for your confirmation'} · {draft.starts} → {draft.ends}{draft.revision > 0 ? ` · revision ${draft.revision}` : ''}</h2>
+          {draft.status === 'revising'
+            ? <div className="notice">The planner is working on your feedback: &ldquo;{draft.feedback}&rdquo;. This takes a few minutes; refresh to see the new version.</div>
+            : <>
+              <Strategy s={draft.strategy} />
+              <Calendar plan={draft} platforms={platforms} editable />
+              <h3>Ask for changes</h3>
+              <form action={revisePlan} className="stack">
+                <input type="hidden" name="plan" value={draft.id} />
+                <textarea name="feedback" rows={3} placeholder="e.g. No safety notices in week 1; more LinkedIn, less X; start with what the product is" aria-label="Feedback for the planner" />
+                <div className="row"><button className="ghost" type="submit">Ask the planner to revise</button></div>
+              </form>
+              <form action={confirmPlan} style={{ marginTop: 16 }}>
+                <input type="hidden" name="plan" value={draft.id} />
+                <button type="submit">Confirm this plan</button>
+                <span className="muted"> &nbsp;The writer starts from it right away.</span>
+              </form>
+            </>}
+        </section>
+      )}
+
+      {current && (
+        <section>
+          <h2>Running plan · {current.starts} → {current.ends}</h2>
+          <Strategy s={current.strategy} />
+          <Calendar plan={current} platforms={platforms} editable />
+        </section>
+      )}
+    </Page>
+  )
+}

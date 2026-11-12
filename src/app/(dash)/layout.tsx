@@ -9,9 +9,10 @@ export default async function DashLayout({ children }: { children: React.ReactNo
   await connection() // always per request: never touch the database at build time
   const products = await sql`select slug, name from products order by id`
   const current = await currentProduct()
-  const [{ n }] = current
-    ? await sql`select count(*)::int as n from posts where product_id = ${current.id} and status = 'waiting'`
-    : [{ n: 0 }]
+  const [{ n, draft }] = current
+    ? await sql`select count(*)::int as n, exists (select 1 from plans where product_id = ${current.id} and status = 'draft') as draft
+        from posts where product_id = ${current.id} and status = 'waiting'`
+    : [{ n: 0, draft: false }]
   return (
     <div className="admin">
       <aside className="sidebar">
@@ -28,7 +29,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
           </form>
         )}
         <Link href="/products/new" className="add-product">+ Add product</Link>
-        <Nav waiting={n} />
+        <Nav waiting={n} planDraft={draft} />
       </aside>
       <main>{children}</main>
     </div>

@@ -76,10 +76,12 @@ export async function saveDraft(productId: number, slot: { openId: number | null
   })
 }
 
+export type PlanRow = Record<string, any> & { id: number; status: string; starts: string; ends: string; revision: number; feedback: string; strategy: Record<string, any>; items: Record<string, any>[] }
+
 /** A plan with its calendar, oldest day first. */
-export async function planWithItems(planId: number) {
+export async function planWithItems(planId: number): Promise<PlanRow | null> {
   const [plan] = await sql`select *, to_char(starts_on, 'YYYY-MM-DD') as starts, to_char(ends_on, 'YYYY-MM-DD') as ends from plans where id = ${planId}`
   if (!plan) return null
   const items = await sql`select *, to_char(day, 'YYYY-MM-DD') as day from plan_items where plan_id = ${planId} order by plan_items.day, plan_items.id`
-  return { ...plan, items }
+  return { ...plan, items: [...items] } as unknown as PlanRow
 }

@@ -6,6 +6,7 @@ import { sql } from '@/lib/db'
 import { PRODUCT_COOKIE, requireOwner } from '@/lib/current'
 import { parseFactLines, replaceFacts } from '@/lib/facts'
 import { publish } from '@/lib/publish'
+import { dispatchAgent } from '@/lib/github'
 
 const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok', 'linkedin', 'bluesky']
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
@@ -40,9 +41,14 @@ export async function saveProduct(f: FormData) {
       .map(r => ({ ...r, product_id: p.id }))
     await sql`insert into channels ${sql(rows)}`
     ;(await cookies()).set(PRODUCT_COOKIE, p.slug, { path: '/', sameSite: 'lax', maxAge: 60 * 60 * 24 * 365 })
+    const started = await dispatchAgent('researcher')
+    revalidatePath('/', 'layout')
+    redirect(`/plan?msg=${encodeURIComponent(started
+      ? 'Product added. The researcher is reading the site now; then draft the plan here.'
+      : 'Product added. The researcher reads the site at 05:00 KST; the plan is drafted after that.')}`)
   }
   revalidatePath('/', 'layout')
-  back(id ? 'Saved' : 'Product added. The researcher reads the site at 05:00 KST tomorrow and fills in anything you left blank; posts start the day after.')
+  back('Saved')
 }
 
 export async function saveFacts(f: FormData) {
