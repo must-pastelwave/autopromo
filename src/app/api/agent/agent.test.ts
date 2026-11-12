@@ -144,6 +144,13 @@ test('products: needs_research for a new product, not after the researcher saved
   expect(after.channels[0]).toHaveProperty('per_day', 1)
 })
 
+test('x: caption must leave room for the link (max 250 chars)', async () => {
+  const { productId } = await seed({ platform: 'x' })
+  const [c] = await sql`select id from channels`
+  expect((await createPost(json('POST', textPost(productId, c.id, { caption: 'a'.repeat(251) })))).status).toBe(400)
+  expect((await createPost(json('POST', textPost(productId, c.id, { caption: 'a'.repeat(250) })))).status).toBe(201)
+})
+
 test('list drafts includes the rules the reviewer needs', async () => {
   const { productId, channelId } = await seed()
   await insertPost(productId, channelId, { status: 'draft' })
