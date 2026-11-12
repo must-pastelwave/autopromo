@@ -34,3 +34,12 @@ test('a run for another product does not show here; no runs → null', async () 
   await reportRun({ ghRunId: 5, jobs: 'writer', productIds: [a.productId + 100], status: 'running' })
   expect(await runStatus(a.productId)).toBeNull()
 })
+
+test('a writer/reviewer run with no product ids counts for every active product and clears their queued requests', async () => {
+  const { productId } = await seed()
+  await requestRun(productId, 'writer reviewer')
+  await reportRun({ ghRunId: 9, jobs: 'writer reviewer', productIds: [], status: 'running' })
+  expect(await runStatus(productId)).toMatchObject({ status: 'running', jobs: 'writer reviewer' })
+  await reportRun({ ghRunId: 9, jobs: 'writer reviewer', productIds: [], status: 'done' })
+  expect(await runStatus(productId)).toMatchObject({ status: 'done' })
+})
