@@ -25,6 +25,10 @@ Shell `$VARIABLES`, pipes and other commands are blocked; only plain `curl` comm
 | `PUT /api/agent/posts/<id>` | the one allowed revision of a `blocked` post |
 | `POST /api/agent/posts/<id>/review` `{verdict:'pass'|'block', reason}` | review a draft |
 | `GET /api/agent/stats?product_id=<id>&days=28` | per post: clicks, signups, purchases |
+| `GET /api/agent/plans?product_id=<id>` | the running confirmed plan and the open draft (with the owner's feedback) |
+| `PUT /api/agent/products/<id>/plan` `{strategy, items}` | the planner's draft plan (replaces the open draft) |
+| `GET /api/agent/plan-items?days=2` | confirmed-plan items the writer should write now |
+| `PUT /api/agent/products/<id>/profile` | the researcher's guess at name, audience, language, tone, banned words |
 | `GET /api/agent/photos?q=<english query>&n=5` | licensed stock photos `{url, credit, track}` |
 | `POST /api/agent/maintenance` | call once at the very end of every run |
 

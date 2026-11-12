@@ -6,6 +6,7 @@ name: agents
 on:
   schedule:
     - cron: "0 20 * * *"   # researcher: daily 05:00 KST (only new or week-old products)
+    - cron: "30 20 * * *"  # planner:    daily 05:30 KST (only when a plan is needed or being revised)
     - cron: "0 22 * * *"   # writer:     daily 07:00 KST
     - cron: "0 23 * * *"   # reviewer:   daily 08:00 KST
     - cron: "0 11 * * 0"   # analyst:    Sun 20:00 KST
@@ -14,7 +15,7 @@ on:
       agent:
         description: Which agent to run now
         type: choice
-        options: [researcher, writer, reviewer, analyst]
+        options: [researcher, planner, writer, reviewer, analyst]
 
 permissions:
   contents: read
@@ -33,10 +34,11 @@ jobs:
         run: |
           case "${{ github.event.schedule }}" in
             "0 20 * * *") a=researcher; t=40 ;;
+            "30 20 * * *") a=planner;   t=40 ;;
             "0 22 * * *") a=writer;     t=80 ;;
             "0 23 * * *") a=reviewer;   t=50 ;;
             "0 11 * * 0") a=analyst;    t=20 ;;
-            *) a="${{ inputs.agent }}"; case "$a" in researcher) t=40;; writer) t=80;; reviewer) t=50;; *) t=20;; esac ;;
+            *) a="${{ inputs.agent }}"; case "$a" in researcher|planner) t=40;; writer) t=80;; reviewer) t=50;; *) t=20;; esac ;;
           esac
           echo "agent=$a" >> "$GITHUB_OUTPUT"; echo "turns=$t" >> "$GITHUB_OUTPUT"
 

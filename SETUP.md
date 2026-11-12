@@ -19,6 +19,8 @@ You'll need: a GitHub account, a Vercel account, a Claude Pro/Max subscription, 
 | `ZERNIO_API_KEY` | from Zernio (step 2) |
 | `UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY` | optional, free keys from unsplash.com/developers and pexels.com/api. Without them slides are text on a plain background |
 | `APP_URL` | your Vercel URL, e.g. `https://autopromo-you.vercel.app` |
+| `GITHUB_REPO` | your fork, e.g. `you/autopromo`, so the app can start agent runs right away |
+| `GITHUB_DISPATCH_TOKEN` | a fine-grained GitHub token for that repo with **Actions: Read and write** (github.com/settings/personal-access-tokens). Without it, agents only run on their schedule |
 
 6. Redeploy. Open the URL, sign in.
 
@@ -51,14 +53,18 @@ Then **Actions → agents → Run workflow → researcher** once to build the fa
 
 The agents run on **your own** Claude subscription, in your own repo, for your own products. Runs count toward your plan's usage limits. Prefer pay-per-use? Add an `ANTHROPIC_API_KEY` secret instead.
 
-## 5. Daily use, then hands-off
+## 5. Agree on a plan
+
+Open **Plan**. After the researcher has read the site, the planner drafts a 4-week plan: goal, call to action, channels, themes, rules, and a calendar of posts. Change items yourself, or write what you want different and press **Ask the planner to revise**. When it's right, press **Confirm this plan**. Only confirmed plan items are ever written and posted. In the plan's last week the planner drafts the next one for you to confirm.
+
+## 6. Daily use, then hands-off
 
 - **Waiting for you:** approve or skip each reviewed post. That's your quality check.
 - When a channel's posts go through cleanly for a couple of weeks (you rarely skip or wish you'd changed something), switch it to **Auto** in Channels.
 - Keep new accounts at 1 post a day (Settings). Raise slowly.
 - Judge it month over month. The first real verdict comes after about 3 months.
 
-## 6. Measure sign-ups (optional, recommended)
+## 7. Measure sign-ups (optional, recommended)
 
 Tracked links land on your site with `ap_click=<id>`. Keep that value (cookie or session). When someone signs up or buys, have your **server** call:
 

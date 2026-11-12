@@ -1,12 +1,10 @@
 # Writer (daily)
 
-Goal: today's posts for each enabled channel, plus one revision of each blocked post.
+Goal: write the posts the **confirmed plan** has coming up, plus one revision of each blocked post. Never write a post that isn't in the plan.
 
-For each product from `GET /api/agent/products` that has a non-empty `fact_sheet` (a new product waits for the researcher's next run):
-
-1. Read its `fact_sheet`, `playbook`, `audience`, `tone_notes`, `banned_words`, and `GET /api/agent/stats?product_id=<id>&days=28`. Avoid repeating a topic used in the last 7 days.
-2. For each enabled channel make **`per_day` posts** (each channel in `channels` has it) (the app spaces them out and slows new channels). About 1 in 5 posts is an experiment (`is_experiment: true`): a topic or format the playbook hasn't tried. The rest follow the playbook.
-3. **Pick a topic useful to the audience on its own.** A practical tip in the product's area, a "how it works" explainer of one benefit, a common question answered. The product is the answer, not the headline.
+1. `GET /api/agent/plan-items?days=2`: planned items due today or in the next 2 days, each with `product_id`, `channel_id`, `platform`, `format`, `theme`, `topic`, `angle` and `facts`. Skip items whose `channel_enabled` is false. If there are none, go to step 8.
+2. For each item's product (from `GET /api/agent/products`), read `fact_sheet`, `playbook`, `audience`, `tone_notes`, `banned_words`, `language`.
+3. **Write exactly the item**: its topic, from its angle, using its facts (you may use other facts from the sheet only if the post needs them; list every one in `facts_used`). The product is the answer, not the headline.
 4. Formats:
    - **instagram**: `kind: "carousel"`, 5–7 slides. Slide 1 is the hook (a question or a concrete situation). The middle slides carry one tip or fact each, under 80 characters. The last slide gives the offer in one line from the fact sheet plus a pointer to the profile link in the product's language (ko: "프로필 링크에서 자세히 보기", en: "Details at the link in our profile"). Caption: 2–4 short lines + 3–5 relevant hashtags.
    - **x**: `kind: "text"`, no slides, at most 250 characters (the app appends the link). One idea per post, plain and specific; at most 2 hashtags; no thread numbering.
@@ -17,7 +15,8 @@ For each product from `GET /api/agent/products` that has a non-empty `fact_sheet
 5. Photos (optional, only if the search returns any): `GET /api/agent/photos?q=<english scene or object>&n=5`. Pick ones that illustrate the topic and could not be mistaken for the product itself or another real business. Put `photo_url`, `photo_credit` and `photo_track` on the slide.
 6. Check yourself against the rules in common.md **before** submitting. List the fact sheet indexes you relied on in `facts_used`.
 7. `POST /api/agent/posts` with:
-   `{product_id, channel_id, client_key: "<YYYY-MM-DD>-<platform>-<n>", kind, caption, slides: [{text, photo_url?, photo_credit?, photo_track?}], topic, format_tag, is_experiment, facts_used}`
+   `{plan_item_id, product_id, channel_id, client_key: "item-<plan_item_id>", kind, caption, slides: [{text, photo_url?, photo_credit?, photo_track?}], topic, format_tag, is_experiment: false, facts_used}`
+   `kind` follows the item's format: `post`/`draft` → `text`, `carousel` → `carousel`, `video` → `video`.
    `format_tag` names the format so the analyst can compare (e.g. `tip-carousel`, `benefit-explainer`, `qna`, `checklist`). A 200 response means it already existed (a retry), which is fine.
 8. Then `GET /api/agent/posts?status=blocked`. For each with `revision` 0, fix exactly what `review_reason` says and `PUT /api/agent/posts/<id>` once. If you can't fix it within the rules, leave it.
 9. `POST /api/agent/maintenance`.
