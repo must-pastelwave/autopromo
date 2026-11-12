@@ -8,6 +8,7 @@ import { PUT as revisePost } from './posts/[id]/route'
 import { POST as review } from './posts/[id]/review/route'
 import { PUT as putFacts } from './products/[id]/facts/route'
 import { GET as products } from './products/route'
+import { PUT as putProfile } from './products/[id]/profile/route'
 import { GET as stats } from './stats/route'
 
 beforeEach(async () => { await resetDb(); process.env.AGENT_TOKEN = 'tok'; process.env.ZERNIO_API_KEY = 'sk' })
@@ -107,6 +108,40 @@ test('review: a revised post blocked again is dropped, not left blocked', async 
   const p = await insertPost(productId, channelId, { status: 'draft', revision: 1 })
   const r = await review(json('POST', { verdict: 'block', reason: 'still wrong' }), ctx({ id: String(p.id) }))
   expect((await r.json()).post.status).toBe('dropped')
+})
+
+test('profile: the researcher fills only what the owner left blank; banned words are added, never removed', async () => {
+  const { productId } = await seed()
+  await sql`update products set url = 'https://www.example.com/x', name = 'example.com', audience = '', language = '', tone_notes = '내 톤', banned_words = '{공짜}' where id = ${productId}`
+  const r = await putProfile(json('PUT', {
+    name: 'Example', audience: '30대 직장인', language: 'ko', tone_notes: 'researcher tone', banned_words: ['수익', '공짜'],
+  }), ctx({ id: String(productId) }))
+  expect(r.status).toBe(200)
+  const [p] = await sql`select name, audience, language, tone_notes, banned_words from products where id = ${productId}`
+  expect(p).toEqual({ name: 'Example', audience: '30대 직장인', language: 'ko', tone_notes: '내 톤', banned_words: ['공짜', '수익'] })
+})
+
+test('profile: a name the owner typed is kept', async () => {
+  const { productId } = await seed()
+  await putProfile(json('PUT', { name: 'Other' }), ctx({ id: String(productId) }))
+  expect((await sql`select name from products where id = ${productId}`)[0].name).toBe('L2U')
+})
+
+test('profile: bad input → 400, unknown product → 404', async () => {
+  const { productId } = await seed()
+  expect((await putProfile(json('PUT', { banned_words: 'x' }), ctx({ id: String(productId) }))).status).toBe(400)
+  expect((await putProfile(json('PUT', { language: 'a'.repeat(20) }), ctx({ id: String(productId) }))).status).toBe(400)
+  expect((await putProfile(json('PUT', {}), ctx({ id: '999' }))).status).toBe(404)
+})
+
+test('products: needs_research for a new product, not after the researcher saved facts', async () => {
+  const { productId } = await seed()
+  const first = (await (await products()).json()).products[0]
+  expect(first.needs_research).toBe(true)
+  await putFacts(json('PUT', { facts: [{ fact: 'a', source_url: 'https://l2u.co.kr/' }] }), ctx({ id: String(productId) }))
+  const after = (await (await products()).json()).products[0]
+  expect(after.needs_research).toBe(false)
+  expect(after.channels[0]).toHaveProperty('per_day', 1)
 })
 
 test('list drafts includes the rules the reviewer needs', async () => {

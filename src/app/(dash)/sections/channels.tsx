@@ -1,6 +1,6 @@
 import { sql } from '@/lib/db'
 import { CONNECTABLE, listAccounts, zernioPlatform } from '@/lib/zernio'
-import { setChannelAccount, toggleAutoPublish, toggleChannel } from '../actions'
+import { setChannelAccount, setPerDay, toggleAutoPublish, toggleChannel } from '../actions'
 
 export async function ChannelsSection({ p }: { p: Record<string, any> }) {
   const channels = await sql`
@@ -15,9 +15,9 @@ export async function ChannelsSection({ p }: { p: Record<string, any> }) {
   return (
     <>
       {zernioError && <div className="notice">Can&apos;t reach Zernio ({zernioError}). Check ZERNIO_API_KEY.</div>}
-      <p className="muted">Press <b>Connect</b> and log in to the account yourself (never by script); it links here automatically. You can also pick an account another product already uses. Every channel starts as &ldquo;Approve first&rdquo;: posts wait for you. Switch to Auto once posts go through cleanly. Keep new accounts at 1 post a day (Settings). One account can serve several products; they then share its daily posts.</p>
+      <p className="muted">Press <b>Connect</b> and log in to the account yourself (never by script); it links here automatically. You can also pick an account another product already uses. Every channel starts as &ldquo;Approve first&rdquo;: posts wait for you. Switch to Auto once posts go through cleanly. Keep new accounts at 1 post a day. One account can serve several products; they then share its daily posts.</p>
       <div className="scroll"><table>
-        <thead><tr><th>Channel</th><th>On</th><th>Auto-publish</th><th>Zernio account</th><th>Status</th></tr></thead>
+        <thead><tr><th>Channel</th><th>On</th><th>Posts / day</th><th>Auto-publish</th><th>Zernio account</th><th>Status</th></tr></thead>
         <tbody>
           {channels.map(c => (
             <tr key={c.id}>
@@ -26,6 +26,13 @@ export async function ChannelsSection({ p }: { p: Record<string, any> }) {
                 <form action={toggleChannel}>
                   <input type="hidden" name="id" value={c.id} /><input type="hidden" name="enabled" value={String(!c.enabled)} />
                   <button type="submit" className={c.enabled ? '' : 'ghost'} aria-pressed={c.enabled}>{c.enabled ? 'On' : 'Off'}</button>
+                </form>
+              </td>
+              <td>
+                <form action={setPerDay} className="row">
+                  <input type="hidden" name="id" value={c.id} />
+                  <input name="per_day" type="number" min={1} max={10} defaultValue={c.per_day} style={{ width: 64 }} aria-label={`Posts per day on ${c.platform}`} />
+                  <button type="submit" className="ghost">Set</button>
                 </form>
               </td>
               <td>

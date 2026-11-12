@@ -4,16 +4,15 @@ function ProductForm({ p }: { p?: Record<string, any> }) {
   return (
     <form action={saveProduct} className="stack">
       {p && <input type="hidden" name="id" value={p.id} />}
-      <label>Product URL<input name="url" type="url" required defaultValue={p?.url} placeholder="https://l2u.co.kr" /></label>
-      <label>Name<input name="name" required defaultValue={p?.name} /></label>
-      <label>Target users<textarea name="audience" required rows={2} defaultValue={p?.audience} placeholder="국내외 여행을 계획하는 20–40대 한국인" /></label>
+      <label>Product page URL<input name="url" type="url" required defaultValue={p?.url} placeholder="https://your-product.com" /></label>
+      {!p && <p className="muted">Only the URL is required. Leave the rest blank and the researcher fills it in from the site on its next morning run; whatever you type is never overwritten.</p>}
+      <label>Name<input name="name" defaultValue={p?.name} /></label>
+      <label>Target users<textarea name="audience" rows={2} defaultValue={p?.audience} placeholder="Who it's for, in a sentence" /></label>
       <div className="row">
-        <label>Language<input name="language" defaultValue={p?.language ?? 'ko'} size={6} /></label>
+        <label>Language<input name="language" defaultValue={p?.language} size={6} placeholder="ko, en…" /></label>
         <label>Timezone<input name="timezone" defaultValue={p?.timezone ?? 'Asia/Seoul'} /></label>
-        <label>Instagram / day<input name="ig_per_day" type="number" min={1} max={10} defaultValue={p?.ig_per_day ?? 1} /></label>
-        <label>Threads / day<input name="threads_per_day" type="number" min={1} max={10} defaultValue={p?.threads_per_day ?? 1} /></label>
       </div>
-      <label>Tone notes<textarea name="tone_notes" rows={3} defaultValue={p?.tone_notes} placeholder="정중하고 차분하게, 정보 위주로" /></label>
+      <label>Tone notes and cautions<textarea name="tone_notes" rows={3} defaultValue={p?.tone_notes} placeholder="How posts should sound, and anything they must always say or never say" /></label>
       <label>Extra banned words (one per line)<textarea name="banned_words" rows={3} defaultValue={p?.banned_words?.join('\n')} /></label>
       <button type="submit">{p ? 'Save' : 'Add product'}</button>
     </form>

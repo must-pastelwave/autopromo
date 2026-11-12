@@ -7,7 +7,8 @@ import { idParam } from '@/lib/postInput'
 
 type Slide = { text: string; photo_url?: string | null; photo_credit?: string | null }
 
-const AREA_NOTE = '이미지는 지역 사진입니다'
+// Stock photos are illustrations, never the product itself. Keyed by the product's language.
+const PHOTO_NOTE: Record<string, string> = { ko: '이미지는 참고용 사진입니다', en: 'Stock photo for illustration' }
 let font: Promise<Buffer> | undefined
 
 // GET /api/slide/<postId>/<n>.png — the ".png" suffix lets Zernio infer the media type.
@@ -15,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ postId:
   const { postId, n } = await params
   const id = idParam(postId), idx = idParam(n.replace(/\.png$/, ''))
   if (id === null || idx === null) return new Response('Not found', { status: 404 })
-  const [post] = await sql`select kind, slides from posts where id = ${id}`
+  const [post] = await sql`select x.kind, x.slides, pr.language from posts x join products pr on pr.id = x.product_id where x.id = ${id}`
   const slide: Slide | undefined = post?.slides?.[idx]
   if (!slide) return new Response('Not found', { status: 404 })
 
@@ -41,7 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ postId:
           {slide.photo_url && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 36, color: 'rgba(255,255,255,0.8)', fontSize: 22 }}>
               <span>{slide.photo_credit ? `Photo: ${slide.photo_credit}` : ''}</span>
-              <span>{AREA_NOTE}</span>
+              <span>{PHOTO_NOTE[post.language] ?? PHOTO_NOTE.ko}</span>
             </div>
           )}
         </div>

@@ -5,7 +5,7 @@ name: agents
 
 on:
   schedule:
-    - cron: "0 21 * * 1"   # researcher: Tue 06:00 KST
+    - cron: "0 20 * * *"   # researcher: daily 05:00 KST (only new or week-old products)
     - cron: "0 22 * * *"   # writer:     daily 07:00 KST
     - cron: "0 23 * * *"   # reviewer:   daily 08:00 KST
     - cron: "0 11 * * 0"   # analyst:    Sun 20:00 KST
@@ -32,7 +32,7 @@ jobs:
         id: pick
         run: |
           case "${{ github.event.schedule }}" in
-            "0 21 * * 1") a=researcher; t=40 ;;
+            "0 20 * * *") a=researcher; t=40 ;;
             "0 22 * * *") a=writer;     t=80 ;;
             "0 23 * * *") a=reviewer;   t=50 ;;
             "0 11 * * 0") a=analyst;    t=20 ;;

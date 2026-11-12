@@ -23,14 +23,13 @@ export async function saveProduct(f: FormData) {
   await requireOwner()
   const id = Number(s(f, 'id')) || null
   const url = s(f, 'url'), name = s(f, 'name'), audience = s(f, 'audience')
-  if (!/^https?:\/\/\S+$/.test(url) || !name || !audience) back('URL, name and target users are required')
+  if (!/^https?:\/\/\S+$/.test(url)) back('Enter the product page URL (https://…)')
   const tz = s(f, 'timezone') || 'Asia/Seoul'
   try { new Intl.DateTimeFormat('en', { timeZone: tz }) } catch { back(`Unknown timezone: ${tz}`) }
-  const perDay = (k: string) => Math.min(Math.max(parseInt(s(f, k), 10) || 1, 1), 10)
+  // Blank fields are filled by the researcher on its next run; a blank name starts as the site's host.
   const fields = {
-    url, name, audience, language: s(f, 'language') || 'ko', timezone: tz, tone_notes: s(f, 'tone_notes'),
-    banned_words: s(f, 'banned_words').split(/[\n,]/).map(w => w.trim()).filter(Boolean),
-    ig_per_day: perDay('ig_per_day'), threads_per_day: perDay('threads_per_day'),
+    url, name: name || new URL(url).hostname.replace(/^www\./, ''), audience, language: s(f, 'language'), timezone: tz,
+    tone_notes: s(f, 'tone_notes'), banned_words: s(f, 'banned_words').split(/[\n,]/).map(w => w.trim()).filter(Boolean),
   }
   if (id) {
     await sql`update products set ${sql(fields)} where id = ${id}`
@@ -80,6 +79,13 @@ export async function approveWaiting(f: FormData) {
   const [p] = await sql`select p.id from posts p join channels c on c.id = p.channel_id where p.id = ${id} and p.status = 'waiting' and c.automatable`
   if (p) await publish(id, { approved: true })
   revalidatePath('/', 'layout')
+}
+
+export async function setPerDay(f: FormData) {
+  await requireOwner()
+  const n = Math.min(Math.max(parseInt(s(f, 'per_day'), 10) || 1, 1), 10)
+  await sql`update channels set per_day = ${n} where id = ${Number(s(f, 'id'))}`
+  revalidatePath('/')
 }
 
 export async function setChannelAccount(f: FormData) {

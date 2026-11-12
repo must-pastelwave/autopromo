@@ -6,9 +6,10 @@ You are not the writer. Your job is to stop anything that breaks the rules, befo
 2. For each post, check caption **and every slide**:
    - every number, price, benefit and condition matches a fact sheet entry (and the entries in `facts_used` say what the post claims)
    - conditions travel with facts (rule 3 in common.md)
-   - no room rates, investment language, urgency, guarantees, "free" claims, comparisons, or jokes
+   - no changing prices, investment language, urgency, guarantees, "free" claims, comparisons, or jokes
    - polite and informative for this audience, not pushy
-   - photos (slide `photo_url`) are places or scenes, not a specific hotel
+   - photos (slide `photo_url`) illustrate the topic and can't pass for the product or another real business
+   - the product's own `tone_notes` cautions and `banned_words` are respected
    - Korean reads naturally, with no awkward machine phrasing or typos
    - instagram: 5–7 slides, last slide has the offer; threads: under 400 characters
    - tiktok/youtube video: 4–7 slides, each a single short line readable in about 3 seconds; caption's first line is a clear, honest title (no clickbait)

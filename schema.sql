@@ -49,3 +49,10 @@ create table if not exists login_failures (at timestamptz not null default now()
 create index if not exists login_failures_at on login_failures(at);
 -- One Zernio profile per product, created when the owner first connects an account from the Channels page.
 alter table products add column if not exists zernio_profile_id text;
+-- Dynamic products: posts per day live on each channel; the researcher fills blank product fields.
+alter table channels add column if not exists per_day int not null default 1;
+update channels c set per_day = greatest(1, pr.ig_per_day) from products pr where pr.id = c.product_id and c.platform = 'instagram' and c.per_day = 1;
+update channels c set per_day = greatest(1, pr.threads_per_day) from products pr where pr.id = c.product_id and c.platform = 'threads' and c.per_day = 1;
+alter table products add column if not exists researched_at timestamptz;
+alter table products alter column audience set default '';
+alter table products alter column language set default '';

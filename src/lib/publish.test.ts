@@ -269,3 +269,24 @@ test('shared account: another product\'s post on the same Zernio account takes t
   expect(y.status).toBe('scheduled')
   expect(y.scheduled_for.getTime()).not.toBe(x.scheduled_for.getTime())
 })
+
+test('posts per day come from the channel: per_day 2 → two slots the same day', async () => {
+  const { productId, channelId } = await seed()
+  await sql`update channels set per_day = 2 where id = ${channelId}`
+  zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
+  const a = await insertPost(productId, channelId), b = await insertPost(productId, channelId)
+  await publish(a.id); await publish(b.id)
+  const [x, y] = [(await get(a.id)).scheduled_for, (await get(b.id)).scheduled_for]
+  // One a day would put them exactly 24h apart.
+  expect(Math.abs(y.getTime() - x.getTime())).toBeLessThan(86400_000)
+})
+
+test('link-in-bio note follows the product language', async () => {
+  const { productId, channelId } = await seed({ platform: 'instagram' })
+  await sql`update products set language = 'en' where id = ${productId}`
+  const f = zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
+  const slides = Array.from({ length: 5 }, (_, i) => ({ text: `tip ${i}` }))
+  const p = await insertPost(productId, channelId, { kind: 'carousel', slides: sql.json(slides), caption: 'Winter tips' })
+  await publish(p.id)
+  expect(JSON.parse(String((f.mock.calls[0] as unknown as [string, RequestInit])[1].body)).content).toBe('Winter tips\n\nLink in our profile')
+})

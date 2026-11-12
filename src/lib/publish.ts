@@ -4,15 +4,16 @@ import { createPost, getPost, uploadMedia } from './zernio'
 import { renderVideo } from './video'
 import { trackUse } from './photos'
 
-const IG_LINK_NOTE = '프로필 링크에서 확인하세요'
+// Shown where captions can't hold a clickable link. Keyed by the product's language.
+const BIO_NOTE: Record<string, string> = { ko: '프로필 링크에서 확인하세요', en: 'Link in our profile' }
 const NEEDS_RECONNECT = /token|reconnect|unauthori[sz]ed|expired|permission|auth/i
 const appUrl = () => (process.env.APP_URL ?? '').replace(/\/$/, '')
 
 // These apps don't make caption links clickable; the profile bio links to /l/<slug> instead.
 const LINK_IN_BIO = ['instagram', 'tiktok', 'youtube']
 
-function captionFor(platform: string, caption: string, code: string): string {
-  return LINK_IN_BIO.includes(platform) ? `${caption}\n\n${IG_LINK_NOTE}` : `${caption}\n\n${appUrl()}/go/${code}`
+function captionFor(platform: string, caption: string, code: string, language: string): string {
+  return LINK_IN_BIO.includes(platform) ? `${caption}\n\n${BIO_NOTE[language] ?? BIO_NOTE.ko}` : `${caption}\n\n${appUrl()}/go/${code}`
 }
 
 /** Per-platform fields Zernio needs for video posts. */
@@ -49,7 +50,7 @@ export async function renderPostVideo(postId: number, slideCount: number, revisi
 /** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
 export async function publish(postId: number, opts: { retry?: boolean; approved?: boolean } = {}): Promise<void> {
   const [row] = await sql`
-    select p.*, c.platform, c.enabled, c.automatable, c.auto_publish, c.zernio_account_id, c.started_at, pr.timezone, pr.ig_per_day, pr.threads_per_day
+    select p.*, c.platform, c.enabled, c.automatable, c.auto_publish, c.zernio_account_id, c.started_at, c.per_day, pr.timezone, pr.language
     from posts p join channels c on c.id = p.channel_id join products pr on pr.id = p.product_id
     where p.id = ${postId}`
   if (!row) return
@@ -75,7 +76,7 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
   // ponytail: two publishes racing on one account could pick the same slot; agents run one at a time.
   const when = nextSlot({
     now: new Date(), tz: row.timezone,
-    perDay: row.platform === 'instagram' ? row.ig_per_day : row.platform === 'threads' ? row.threads_per_day : 1,
+    perDay: row.per_day,
     startedAt: row.started_at, taken: taken.map(t => t.scheduled_for),
   })
   const slides: { photo_track?: string }[] = row.slides ?? []
@@ -84,7 +85,7 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
   try {
     const { zernioId } = await createPost({
       postId, accountId: row.zernio_account_id, platform: row.platform,
-      caption: captionFor(row.platform, row.caption, row.link_code),
+      caption: captionFor(row.platform, row.caption, row.link_code, row.language),
       mediaUrls: isVideo
         ? [await uploadMedia(await renderPostVideo(postId, slides.length, row.revision), `post-${postId}-r${row.revision}.mp4`, 'video/mp4')]
         : slideUrls,
