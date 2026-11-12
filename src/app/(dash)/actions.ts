@@ -41,7 +41,7 @@ export async function saveProduct(f: FormData) {
       .map(r => ({ ...r, product_id: p.id }))
     await sql`insert into channels ${sql(rows)}`
     ;(await cookies()).set(PRODUCT_COOKIE, p.slug, { path: '/', sameSite: 'lax', maxAge: 60 * 60 * 24 * 365 })
-    const started = await dispatchAgent('researcher')
+    const started = await dispatchAgent('auto')
     revalidatePath('/', 'layout')
     redirect(`/plan?msg=${encodeURIComponent(started
       ? 'Product added. The researcher is reading the site now; then draft the plan here.'

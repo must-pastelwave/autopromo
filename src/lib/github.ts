@@ -1,4 +1,4 @@
-export type Agent = 'researcher' | 'planner' | 'writer' | 'reviewer' | 'analyst'
+export type Agent = 'auto' | 'researcher' | 'planner' | 'writer' | 'reviewer' | 'analyst'
 
 /**
  * Start one agent now via the agents workflow (GitHub workflow_dispatch). Needs GITHUB_DISPATCH_TOKEN
