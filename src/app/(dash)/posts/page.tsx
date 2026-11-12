@@ -1,7 +1,9 @@
-import { redirect } from 'next/navigation'
+import { currentProduct } from '@/lib/current'
+import { PostsSection } from '../sections/posts'
+import { Page } from '../sections/frame'
 
-// The dashboard is one page now; old tab addresses jump to their section.
-export default async function Old({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
-  const q = new URLSearchParams({ ...(await searchParams), open: 'posts' }).toString()
-  redirect(`/${q ? `?${q}` : ''}#posts`)
+export default async function Posts({ searchParams }: { searchParams: Promise<{ msg?: string; status?: string }> }) {
+  const { msg, status } = await searchParams
+  const p = await currentProduct()
+  return <Page title="Posts" msg={msg}>{p ? <PostsSection p={p} status={status} /> : <p>No product yet. Add one in <a href="/settings">Settings</a>.</p>}</Page>
 }

@@ -31,7 +31,7 @@ export async function WaitingSection({ p }: { p: Record<string, any> }) {
             )}
             {x.kind === 'video' && (
               <details style={{ marginBottom: 8 }}>
-                <summary>▶ Preview video</summary>
+                <summary>Preview video</summary>
                 <video src={`/api/video/${x.id}?r=${x.revision}`} controls preload="none" style={{ width: 270, height: 480, background: '#000' }} />
               </details>
             )}

@@ -29,7 +29,7 @@ test('start: unknown platform or product → back to Channels with a message, no
   const { productId } = await seed()
   const f = vi.fn(); vi.stubGlobal('fetch', f)
   expect(where(await call(start, 'myspace', `product=${productId}`)).searchParams.get('msg')).toMatch(/can't connect/)
-  expect(where(await call(start, 'tiktok', 'product=999')).hash).toBe('#channels')
+  expect(where(await call(start, 'tiktok', 'product=999')).pathname).toBe('/channels')
   expect(f).not.toHaveBeenCalled()
 })
 
@@ -39,7 +39,7 @@ test('done: links the new account to the channel and says so', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ accounts: [
     { _id: 'yt1', platform: 'youtube', username: 'tube' }, { _id: 'tt1', platform: 'tiktok', username: '@stay' }] })))
   const r = await call(done, 'tiktok', `product=${productId}`)
-  expect(where(r).hash).toBe('#channels')
+  expect(where(r).pathname).toBe('/channels')
   expect(where(r).searchParams.get('msg')).toBe('Connected tiktok: @stay')
   const [c] = await sql`select zernio_account_id, needs_reconnect from channels where id = ${channelId}`
   expect(c).toEqual({ zernio_account_id: 'tt1', needs_reconnect: false })

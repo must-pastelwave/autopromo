@@ -15,7 +15,7 @@ export async function PostsSection({ p, status: asked }: { p: Record<string, any
   return (
     <>
       <div className="row" style={{ marginBottom: 12 }}>
-        {STATUSES.map(s => <Link key={s} href={s === 'all' ? '/#posts' : `/?status=${s}#posts`} className="badge" aria-current={s === status ? 'page' : undefined}>{s}</Link>)}
+        {STATUSES.map(s => <Link key={s} href={s === 'all' ? '/posts' : `/posts?status=${s}`} className="badge" aria-current={s === status ? 'page' : undefined}>{s}</Link>)}
       </div>
       <div className="scroll"><table>
         <thead><tr><th>Channel</th><th>Post</th><th>Status</th><th>Sign-ups</th><th>Purchases</th><th>Clicks</th><th>When</th></tr></thead>

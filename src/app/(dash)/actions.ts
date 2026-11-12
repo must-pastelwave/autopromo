@@ -11,7 +11,7 @@ const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
-const back = (msg: string, section = 'settings'): never => redirect(`/?msg=${encodeURIComponent(msg)}&open=${section}#${section}`)
+const back = (msg: string, section = 'settings'): never => redirect(`/${section}?msg=${encodeURIComponent(msg)}`)
 
 export async function selectProduct(f: FormData) {
   await requireOwner()

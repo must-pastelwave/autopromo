@@ -8,7 +8,7 @@ export async function ChannelsSection({ p }: { p: Record<string, any> }) {
       select string_agg(pr.name, ', ') from channels o join products pr on pr.id = o.product_id
       where o.zernio_account_id = c.zernio_account_id and o.platform = c.platform and o.product_id <> c.product_id
     ) as shared_with
-    from channels c where c.product_id = ${p.id} order by c.automatable desc, c.id`
+    from channels c where c.product_id = ${p.id} order by c.enabled desc, c.automatable desc, c.id`
   let accounts: Awaited<ReturnType<typeof listAccounts>> = []
   let zernioError = ''
   try { accounts = await listAccounts() } catch (e) { zernioError = e instanceof Error ? e.message : String(e) }

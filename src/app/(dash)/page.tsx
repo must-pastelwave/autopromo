@@ -1,8 +1,6 @@
-import { WaitingSection } from './sections/waiting'
-import { ChannelsSection } from './sections/channels'
-import { PostsSection } from './sections/posts'
-import { SettingsSection } from './sections/settings'
+import Link from 'next/link'
 import { sql } from '@/lib/db'
+import { Page } from './sections/frame'
 import { currentProduct } from '@/lib/current'
 
 const fmt = (d: Date, tz: string) => new Intl.DateTimeFormat('ko-KR', { timeZone: tz, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d)
@@ -25,11 +23,10 @@ function Chart({ days }: { days: Day[] }) {
   )
 }
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<{ msg?: string; status?: string; open?: string }> }) {
-  const { msg, status, open } = await searchParams
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ msg?: string }> }) {
+  const { msg } = await searchParams
   const p = await currentProduct()
-  const notice = msg && <div className="notice" role="status">{msg}</div>
-  if (!p) return <>{notice}<h2>Add your first product</h2><SettingsSection p={null} /></>
+  if (!p) return <Page title="Dashboard" msg={msg}><p>No product yet. <Link href="/settings">Add your first product</Link>: only its URL is needed.</p></Page>
 
   const windows = await sql`
     select w.label,
@@ -62,17 +59,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const next = await sql`
     select x.id, x.topic, c.platform, x.scheduled_for from posts x join channels c on c.id = x.channel_id
     where x.product_id = ${p.id} and x.status = 'scheduled' and x.scheduled_for > now() order by x.scheduled_for limit 5`
+  const channels = await sql`select platform, automatable, auto_publish, zernio_account_id, needs_reconnect from channels where product_id = ${p.id} and enabled order by id`
   const week = windows[0]
 
   return (
-    <>
-      {notice}
+    <Page title="Dashboard" msg={msg}>
       <div className="stats">
         <div className="stat"><div className="big">{week.signups}</div><div className="muted">sign-ups, 7 days</div></div>
         <div className="stat"><div className="big">{week.clicks}</div><div className="muted">clicks, 7 days</div></div>
         <div className="stat"><div className="big">{counts.live}</div><div className="muted">posts live, 28 days</div></div>
         <div className="stat"><div className="big">{counts.blocked}</div><div className="muted">blocked by reviewer</div></div>
-        <a className="stat" href="#waiting"><div className="big">{counts.waiting}</div><div className="muted">waiting for you</div></a>
+        <Link className="stat" href="/waiting"><div className="big">{counts.waiting}</div><div className="muted">waiting for you</div></Link>
       </div>
 
       <h2>Sign-ups and clicks per day</h2>
@@ -89,9 +86,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </table>
         <p className="muted">Weekly numbers are signals for tuning. Judge month over month; the first real verdict comes after about 3 months.</p>
       </div>
-
-      <h2 id="waiting">Waiting for you{counts.waiting > 0 ? ` (${counts.waiting})` : ''}</h2>
-      <WaitingSection p={p} />
 
       <div className="two">
         <section>
@@ -113,18 +107,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </section>
       </div>
 
-      <h2 id="channels">Channels</h2>
-      <ChannelsSection p={p} />
-
-      <details id="posts" open={!!status || open === 'posts'}>
-        <summary><h2>All posts</h2></summary>
-        <PostsSection p={p} status={status} />
-      </details>
-
-      <details id="settings" open={open === 'settings'}>
-        <summary><h2>Settings</h2></summary>
-        <SettingsSection p={p} />
-      </details>
-    </>
+      <h2>Channels on</h2>
+      <div className="row">
+        {channels.map(c => (
+          <Link key={c.platform} href="/channels" className="badge">
+            {c.platform} · {c.needs_reconnect ? 'reconnect' : !c.automatable ? 'drafts only' : !c.zernio_account_id ? 'not connected' : c.auto_publish ? 'auto' : 'approve first'}
+          </Link>
+        ))}
+        {channels.length === 0 && <span className="muted">None. <Link href="/channels">Turn some on</Link>.</span>}
+      </div>
+    </Page>
   )
 }
