@@ -86,7 +86,7 @@ test('second post on a channel takes a different slot', async () => {
 
 test('maintenance: expires old waiting, retries 5xx once, leaves 4xx, syncs published', async () => {
   const { productId, channelId } = await seed()
-  const old = await insertPost(productId, channelId, { status: 'waiting', created_at: new Date(Date.now() - 8 * 86400_000) })
+  const old = await insertPost(productId, channelId, { status: 'waiting', status_changed_at: new Date(Date.now() - 8 * 86400_000) })
   const fresh = await insertPost(productId, channelId, { status: 'waiting' })
   const f5 = await insertPost(productId, channelId, { status: 'failed', error: 'zernio 503: down' })
   const f4 = await insertPost(productId, channelId, { status: 'failed', error: 'zernio 400: bad media' })
@@ -222,4 +222,50 @@ test('video: slide fetch fails → failed, nothing posted', async () => {
   expect(row.status).toBe('failed')
   expect(row.error).toMatch(/slide/)
   expect(f.mock.calls.some(c => String(c[0]).endsWith('/posts'))).toBe(false)
+})
+
+test('maintenance: a post stuck at passed (publish crashed) is published', async () => {
+  const { productId, channelId } = await seed()
+  const stuck = await insertPost(productId, channelId, { status: 'passed', status_changed_at: new Date(Date.now() - 3600_000) })
+  const justPassed = await insertPost(productId, channelId, { status: 'passed' })
+  zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
+  await runMaintenance()
+  expect((await get(stuck.id)).status).toBe('scheduled')
+  expect((await get(justPassed.id)).status).toBe('passed')
+})
+
+test('status changes stamp status_changed_at; waiting expires 7 days after it started waiting', async () => {
+  const { productId, channelId } = await seed()
+  const oldButNewlyWaiting = await insertPost(productId, channelId, { status: 'passed', created_at: new Date(Date.now() - 30 * 86400_000), status_changed_at: new Date(Date.now() - 30 * 86400_000) })
+  await sql`update posts set status = 'waiting' where id = ${oldButNewlyWaiting.id}`
+  const stale = await insertPost(productId, channelId, { status: 'waiting', status_changed_at: new Date(Date.now() - 8 * 86400_000) })
+  vi.stubGlobal('fetch', vi.fn())
+  await runMaintenance()
+  expect((await get(oldButNewlyWaiting.id)).status).toBe('waiting')
+  expect((await get(stale.id)).status).toBe('expired')
+})
+
+test('a retry uses a fresh Zernio idempotency key, so a failed attempt is not replayed', async () => {
+  const { productId, channelId } = await seed()
+  const f = zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
+  const p = await insertPost(productId, channelId, { revision: 1 })
+  await publish(p.id)
+  await sql`update posts set status = 'passed' where id = ${p.id}`
+  await publish(p.id, { retry: true, approved: true })
+  const keys = f.mock.calls.map(c => new Headers((c as unknown as [string, RequestInit])[1].headers).get('idempotency-key'))
+  expect(keys).toEqual([`post-${p.id}-r1`, `post-${p.id}-r1-retry`])
+})
+
+test('shared account: another product\'s post on the same Zernio account takes the slot', async () => {
+  const a = await seed()
+  const [pb] = await sql`insert into products (slug, url, name, audience) values ('b', 'https://b.test/', 'B', 'x') returning id`
+  const [cb] = await sql`insert into channels (product_id, platform, automatable, enabled, zernio_account_id, auto_publish) values (${pb.id}, 'threads', true, true, 'acc1', true) returning id`
+  zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
+  const first = await insertPost(a.productId, a.channelId)
+  await publish(first.id)
+  const second = await insertPost(pb.id, cb.id)
+  await publish(second.id)
+  const [x, y] = [await get(first.id), await get(second.id)]
+  expect(y.status).toBe('scheduled')
+  expect(y.scheduled_for.getTime()).not.toBe(x.scheduled_for.getTime())
 })

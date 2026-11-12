@@ -27,11 +27,11 @@ function platformError(post: any): string {
 
 export async function createPost(p: {
   postId: number; accountId: string; platform: string; caption: string; mediaUrls: string[]; scheduledFor: Date
-  mediaType?: 'video'; platformSpecificData?: Record<string, unknown>; extra?: Record<string, unknown>
+  mediaType?: 'video'; platformSpecificData?: Record<string, unknown>; extra?: Record<string, unknown>; idempotencyKey?: string
 }): Promise<{ zernioId: string }> {
   const { status, body } = await call('/posts', {
     method: 'POST',
-    headers: { 'Idempotency-Key': `post-${p.postId}` },
+    headers: { 'Idempotency-Key': p.idempotencyKey ?? `post-${p.postId}` },
     body: JSON.stringify({
       content: p.caption,
       ...(p.mediaUrls.length ? { mediaItems: p.mediaUrls.map(url => (p.mediaType ? { type: p.mediaType, url } : { url })) } : {}),

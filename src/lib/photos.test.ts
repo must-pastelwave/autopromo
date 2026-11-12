@@ -31,3 +31,9 @@ test('a failing source is skipped', async () => {
     String(url).includes('unsplash') ? new Response('err', { status: 500 }) : Response.json(pexels)))
   expect((await searchPhotos('x', 2)).map(p => p.source)).toEqual(['pexels', 'pexels'])
 })
+
+test('malformed results are skipped, not a crash', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => Response.json(String(url).includes('unsplash')
+    ? { results: [{ urls: null }, { user: {} }] } : { photos: [{ src: {} }, { src: { large2x: 'https://p/ok.jpg' }, photographer: 'P' }] })))
+  expect((await searchPhotos('x', 2)).map(p => p.url)).toEqual(['https://p/ok.jpg'])
+})

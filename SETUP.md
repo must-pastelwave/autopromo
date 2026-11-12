@@ -34,7 +34,7 @@ Never sign up or log in to social accounts with scripts or automated browsers. T
 
 ## 3. Add your product
 
-In the dashboard → **Settings → Add a product**: the URL tracked links should land on, target users, language, timezone, and extra banned words. Then **Channels**: switch on the channels you'll use and pick each one's Zernio account. Leave **Auto-publish off** for now ("Approve first").
+In the dashboard → **Settings → Add a product**: the URL tracked links should land on, target users, language, timezone, and extra banned words. Then **Channels**: switch on the channels you'll use and pick each one's Zernio account. One account can serve several products; they then share its daily posts. Leave **Auto-publish off** for now ("Approve first").
 
 TikTok, YouTube and Instagram don't make links in captions clickable. Paste the bio link shown in Settings into each profile's bio once.
 

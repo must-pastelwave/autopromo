@@ -62,11 +62,13 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
   if (!row.zernio_account_id) return fail('channel not connected to Zernio')
   if (!appUrl()) return fail('APP_URL is not set')
 
+  // Slots are per Zernio account, so products sharing one account share its daily posts (the cap is this channel's per-day).
   const taken = await sql`
-    select scheduled_for from posts
-    where channel_id = ${row.channel_id} and id <> ${postId} and status in ('scheduled', 'published')
-      and scheduled_for > now() - interval '1 day'`
-  // ponytail: two publishes racing on one channel could pick the same slot; agents run one at a time.
+    select p.scheduled_for from posts p join channels c on c.id = p.channel_id
+    where (p.channel_id = ${row.channel_id} or (c.zernio_account_id = ${row.zernio_account_id} and c.platform = ${row.platform}))
+      and p.id <> ${postId} and p.status in ('scheduled', 'published')
+      and p.scheduled_for > now() - interval '1 day'`
+  // ponytail: two publishes racing on one account could pick the same slot; agents run one at a time.
   const when = nextSlot({
     now: new Date(), tz: row.timezone,
     perDay: row.platform === 'instagram' ? row.ig_per_day : row.platform === 'threads' ? row.threads_per_day : 1,
@@ -82,6 +84,8 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
       caption: captionFor(row.platform, row.caption, row.link_code),
       mediaUrls: isVideo ? [await videoUrl(postId, slideUrls, row.revision)] : slideUrls,
       scheduledFor: when,
+      // A new key per revision and for the retry: Zernio would replay a failed attempt under the same key.
+      idempotencyKey: `post-${postId}-r${row.revision}${opts.retry ? '-retry' : ''}`,
       ...(isVideo ? { mediaType: 'video' as const, ...videoFields(row.platform, row.caption) } : {}),
     })
     await sql`update posts set status = 'scheduled', scheduled_for = ${when}, zernio_post_id = ${zernioId}, error = null where id = ${postId}`
@@ -94,7 +98,11 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
 
 /** Periodic upkeep: retry transient failures once, sync published state, expire old drafts. */
 export async function runMaintenance(): Promise<void> {
-  await sql`update posts set status = 'expired' where status = 'waiting' and created_at < now() - interval '7 days'`
+  await sql`update posts set status = 'expired' where status = 'waiting' and status_changed_at < now() - interval '7 days'`
+
+  // Passed review but publish never ran to the end (a crash or timeout): try again.
+  const stuck = await sql`select id from posts where status = 'passed' and status_changed_at < now() - interval '10 minutes'`
+  for (const s of stuck) await publish(s.id)
 
   const retry = await sql`
     select id from posts where status = 'failed'

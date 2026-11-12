@@ -1,13 +1,8 @@
-import { timingSafeEqual } from 'node:crypto'
 import { sql } from '@/lib/db'
+import { bearerMatches } from '@/lib/auth'
 import { bad, readJson } from '@/lib/postInput'
 
-function authorized(req: Request): boolean {
-  const token = process.env.CONVERSION_TOKEN
-  if (!token) return false
-  const a = Buffer.from(req.headers.get('authorization') ?? ''), b = Buffer.from(`Bearer ${token}`)
-  return a.length === b.length && timingSafeEqual(a, b)
-}
+const authorized = (req: Request) => bearerMatches(req, process.env.CONVERSION_TOKEN)
 
 /**
  * Called server-to-server by the product site when a sign-up or purchase happens.

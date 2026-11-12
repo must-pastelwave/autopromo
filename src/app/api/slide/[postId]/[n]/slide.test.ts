@@ -16,3 +16,13 @@ test('carousel slides are 1080x1350, video slides 1080x1920', async () => {
   expect(size(await get(carousel.id))).toEqual([1080, 1350])
   expect(size(await get(video.id))).toEqual([1080, 1920])
 }, 30_000)
+
+test('ids must be plain numbers', async () => {
+  const { productId, channelId } = await seed()
+  const p = await insertPost(productId, channelId, { kind: 'carousel', slides: sql.json([{ text: 'a' }]) })
+  const status = async (postId: string, n: string) =>
+    (await GET(new Request('http://app.test/x'), { params: Promise.resolve({ postId, n }) })).status
+  expect(await status(`${p.id}abc`, '0.png')).toBe(404)
+  expect(await status(String(p.id), '0abc.png')).toBe(404)
+  expect(await status(String(p.id), '0.png')).toBe(200)
+}, 30_000)

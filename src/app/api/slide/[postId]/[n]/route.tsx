@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { sql } from '@/lib/db'
 import { clip, fontSizeFor } from '@/lib/fit'
+import { idParam } from '@/lib/postInput'
 
 type Slide = { text: string; photo_url?: string | null; photo_credit?: string | null }
 
@@ -12,13 +13,14 @@ let font: Promise<Buffer> | undefined
 // GET /api/slide/<postId>/<n>.png — the ".png" suffix lets Zernio infer the media type.
 export async function GET(_req: Request, { params }: { params: Promise<{ postId: string; n: string }> }) {
   const { postId, n } = await params
-  const id = parseInt(postId, 10), idx = parseInt(n, 10)
-  if (!Number.isInteger(id) || !Number.isInteger(idx)) return new Response('Not found', { status: 404 })
+  const id = idParam(postId), idx = idParam(n.replace(/\.png$/, ''))
+  if (id === null || idx === null) return new Response('Not found', { status: 404 })
   const [post] = await sql`select kind, slides from posts where id = ${id}`
   const slide: Slide | undefined = post?.slides?.[idx]
   if (!slide) return new Response('Not found', { status: 404 })
 
-  font ??= readFile(join(process.cwd(), 'assets/fonts/NotoSansKR-Bold.otf'))
+  // A failed read isn't cached forever: the next request tries again.
+  font ??= readFile(join(process.cwd(), 'assets/fonts/NotoSansKR-Bold.otf')).catch(e => { font = undefined; throw e })
   const text = clip(slide.text)
   // Video slides are 9:16. TikTok and Shorts cover the bottom ~25% with captions and buttons, so text sits higher.
   const video = post.kind === 'video'
