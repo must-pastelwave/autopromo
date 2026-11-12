@@ -1,6 +1,6 @@
 # autopromo
 
-Hands-off social promotion for one product. Claude agents learn your product from its own website, write useful posts (Instagram card-news carousels, Threads posts), review each other's work, publish through [Zernio](https://zernio.com), and learn from what brings sign-ups. You approve posts at first, then let channels run on their own.
+Hands-off social promotion for one product. Claude agents learn your product from its own website, write useful posts (short vertical videos for TikTok and YouTube Shorts, Instagram carousels, Threads posts), review each other's work, publish through [Zernio](https://zernio.com), and learn from what brings sign-ups. You approve posts at first, then let channels run on their own.
 
 - **Honest by design:** posts may only claim what's on your product's site (a fact sheet with sources), conditions included. A separate reviewer agent blocks anything doubtful.
 - **Safe for accounts:** people do every login; no automated likes, follows or comments; AI noted in bios; new accounts start at 1 post a day.

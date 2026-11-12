@@ -2,6 +2,14 @@
 
 Date: 2026-11-11 · v2 (after Ho Young's review the same day) · Working name: **autopromo**
 
+## What changed in v3 (2026-11-12)
+
+1. **Agents run on the owner's Claude subscription** (`CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`) in the owner's own repo. An API key still works as an alternative.
+2. **No access to the business's own accounts is assumed.** Posts go out from accounts the operator controls. The first channels are **TikTok and YouTube Shorts**, because both show videos by interest, so new accounts reach people.
+3. **Video posts:** the writer makes 4–7 short text slides; the app renders 1080×1920 slides, turns them into an mp4 with ffmpeg, uploads it to Zernio and posts it. Links go in the profile bio (`/l/<slug>`), because captions on these apps aren't clickable.
+4. **Photo keys are optional.** Without them, slides are text on a plain background.
+5. **Communities** (Reddit, HN, Naver) stay drafts-only, posted by a person. They ban automated posting.
+
 ## What changed in v2
 
 1. **Claude runs on an API key, not the owner's subscription.** Anthropic's Agent SDK docs don't allow third-party products to offer claude.ai login or subscription rate limits. Agents run as scheduled GitHub Actions with the owner's `ANTHROPIC_API_KEY`. The cost line is now API usage.

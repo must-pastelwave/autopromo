@@ -14,25 +14,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ postId:
   const { postId, n } = await params
   const id = parseInt(postId, 10), idx = parseInt(n, 10)
   if (!Number.isInteger(id) || !Number.isInteger(idx)) return new Response('Not found', { status: 404 })
-  const [post] = await sql`select slides from posts where id = ${id}`
+  const [post] = await sql`select kind, slides from posts where id = ${id}`
   const slide: Slide | undefined = post?.slides?.[idx]
   if (!slide) return new Response('Not found', { status: 404 })
 
   font ??= readFile(join(process.cwd(), 'assets/fonts/NotoSansKR-Bold.otf'))
   const text = clip(slide.text)
+  // Video slides are 9:16. TikTok and Shorts cover the bottom ~25% with captions and buttons, so text sits higher.
+  const video = post.kind === 'video'
+  const height = video ? 1920 : 1350
   return new ImageResponse(
     (
       <div style={{ width: '100%', height: '100%', display: 'flex', position: 'relative', background: '#1f3a5f', fontFamily: 'Noto Sans KR' }}>
         {slide.photo_url && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={slide.photo_url} alt="" width={1080} height={1350} style={{ position: 'absolute', inset: 0, objectFit: 'cover' }} />
+          <img src={slide.photo_url} alt="" width={1080} height={height} style={{ position: 'absolute', inset: 0, objectFit: 'cover' }} />
         )}
         <div style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0, height: '60%', display: 'flex', flexDirection: 'column',
-          justifyContent: 'flex-end', padding: 72,
+          position: 'absolute', left: 0, right: 0, bottom: video ? '28%' : 0, height: video ? '52%' : '60%', display: 'flex', flexDirection: 'column',
+          justifyContent: video ? 'center' : 'flex-end', padding: 72,
           ...(slide.photo_url ? { backgroundImage: 'linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.78))' } : {}),
         }}>
-          <div style={{ color: 'white', fontSize: fontSizeFor(text), lineHeight: 1.35, display: 'flex', flexWrap: 'wrap' }}>{text}</div>
+          <div style={{ color: 'white', fontSize: fontSizeFor(text), lineHeight: 1.35, display: 'flex', flexWrap: 'wrap', wordBreak: 'keep-all' }}>{text}</div>
           {slide.photo_url && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 36, color: 'rgba(255,255,255,0.8)', fontSize: 22 }}>
               <span>{slide.photo_credit ? `Photo: ${slide.photo_credit}` : ''}</span>
@@ -43,7 +46,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ postId:
       </div>
     ),
     {
-      width: 1080, height: 1350,
+      width: 1080, height,
       fonts: [{ name: 'Noto Sans KR', data: await font, weight: 700, style: 'normal' }],
       headers: { 'cache-control': 'public, max-age=86400' },
     },

@@ -82,6 +82,26 @@ test('instagram needs a carousel', async () => {
   expect((await createPost(json('POST', textPost(productId, c.id)))).status).toBe(400)
 })
 
+test('tiktok and youtube take video posts only, 3–8 slides', async () => {
+  const { productId } = await seed({ platform: 'tiktok' })
+  const [c] = await sql`select id from channels`
+  const slides = (n: number) => Array.from({ length: n }, (_, i) => ({ text: `팁 ${i}` }))
+  expect((await createPost(json('POST', textPost(productId, c.id)))).status).toBe(400)
+  expect((await createPost(json('POST', textPost(productId, c.id, { kind: 'video', slides: slides(2) })))).status).toBe(400)
+  expect((await createPost(json('POST', textPost(productId, c.id, { kind: 'video', slides: slides(9) })))).status).toBe(400)
+  expect((await createPost(json('POST', textPost(productId, c.id, { kind: 'video', slides: slides(4) })))).status).toBe(201)
+})
+
+test('youtube: first caption line is the title, max 100 chars', async () => {
+  const { productId } = await seed({ platform: 'youtube' })
+  const [c] = await sql`select id from channels`
+  const slides = Array.from({ length: 4 }, (_, i) => ({ text: `팁 ${i}` }))
+  const long = textPost(productId, c.id, { kind: 'video', slides, caption: 'a'.repeat(101) + '\n본문' })
+  expect((await createPost(json('POST', long))).status).toBe(400)
+  const ok = textPost(productId, c.id, { kind: 'video', slides, caption: '제목\n본문' })
+  expect((await createPost(json('POST', ok))).status).toBe(201)
+})
+
 test('list drafts includes the rules the reviewer needs', async () => {
   const { productId, channelId } = await seed()
   await insertPost(productId, channelId, { status: 'draft' })

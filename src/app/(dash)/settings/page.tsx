@@ -32,8 +32,8 @@ export default async function Settings({ searchParams }: { searchParams: Promise
         <>
           <h2>{p.name}</h2>
           <ProductForm p={p} />
-          <h2>Instagram bio link</h2>
-          <p>Put this in the Instagram bio once: <code>{app}/l/{p.slug}</code></p>
+          <h2>Profile bio link</h2>
+          <p>Put this in the TikTok, YouTube and Instagram bio once: <code>{app}/l/{p.slug}</code></p>
           <h2>Fact sheet</h2>
           <p className="muted">The only claims posts may make. One per line: <code>fact | https://source-page</code>. Removing a fact cancels posts that used it.</p>
           <form action={saveFacts} className="stack">
