@@ -13,6 +13,8 @@ export async function requestRun(productId: number, jobs: string): Promise<void>
 
 /** The workflow reports a run starting ('running') or ending ('done' / 'failed'). Queued requests for its products merge into it. */
 export async function reportRun(r: { ghRunId: number; jobs: string; productIds: number[]; status: 'running' | 'done' | 'failed'; url?: string }): Promise<void> {
+  // Writer and reviewer runs started for due work aren't tied to one product: they serve every active product.
+  if (r.productIds.length === 0) r = { ...r, productIds: (await sql`select id from products where active`).map(p => p.id as number) }
   if (r.status === 'running') {
     await sql`delete from agent_runs where status = 'queued' and product_ids && ${r.productIds}::int[]`
     await sql`

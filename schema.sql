@@ -93,3 +93,5 @@ create table if not exists follower_counts (
   channel_id int not null references channels on delete cascade, day date not null, followers int not null,
   primary key (channel_id, day));
 create table if not exists sync_state (key text primary key, at timestamptz not null, note text not null default '');
+-- Owner asked to write a plan item again (after its post was blocked): bypasses the writer cool-down once.
+alter table plan_items add column if not exists retry_at timestamptz;

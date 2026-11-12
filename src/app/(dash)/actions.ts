@@ -8,6 +8,7 @@ import { parseFactLines, replaceFacts } from '@/lib/facts'
 import { publish } from '@/lib/publish'
 import { dispatchAgent } from '@/lib/github'
 import { requestRun } from '@/lib/runs'
+import { retryPost } from '@/lib/retry'
 
 const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok', 'linkedin', 'bluesky']
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
@@ -119,4 +120,18 @@ export async function setActive(f: FormData) {
   if (on) await dispatchAgent('auto')
   revalidatePath('/', 'layout')
   back(on ? 'Resumed.' : 'Paused. Nothing runs for this product until you resume it.')
+}
+
+/** Write a blocked or dropped plan post again, now. */
+export async function retryPostAction(f: FormData) {
+  await requireOwner()
+  const id = Number(s(f, 'id'))
+  const [x] = await sql`select product_id from posts where id = ${id}`
+  const ok = x && (await retryPost(id))
+  if (ok) {
+    await requestRun(x.product_id, 'writer reviewer')
+    await dispatchAgent('auto')
+  }
+  revalidatePath('/', 'layout')
+  redirect(`/posts?msg=${encodeURIComponent(ok ? 'Writing it again now; it appears here in a few minutes.' : 'That post can no longer be written again.')}`)
 }

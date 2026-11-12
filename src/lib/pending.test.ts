@@ -26,7 +26,7 @@ test('nothing pending: researched, planned, not revising, nothing to kick off; p
 })
 
 test('writer work: a due plan item or a blocked post to fix; not again within 3 hours of a writer run', async () => {
-  const { productId, channelId } = await seed()
+  const { productId } = await seed()
   await sql`update products set researched_at = now()`
   const [pl] = await sql`insert into plans (product_id, status, starts_on, ends_on, kicked_off_at) values (${productId}, 'confirmed', current_date, current_date + 27, now()) returning id`
   expect(await workToDo()).toMatchObject({ write: false, review: false })
