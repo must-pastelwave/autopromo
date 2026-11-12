@@ -36,7 +36,9 @@ export async function WaitingSection({ p }: { p: Record<string, any> }) {
               </details>
             )}
             <div className="row">
-              {x.automatable ? (
+              {x.automatable && x.error?.startsWith('connect your') ? (
+                <a className="button" href="/channels">Connect {x.platform}</a>
+              ) : x.automatable ? (
                 <form action={approveWaiting}><input type="hidden" name="id" value={x.id} /><button type="submit">Approve &amp; schedule</button></form>
               ) : (
                 <>

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { sql } from '@/lib/db'
 import { currentProduct } from '@/lib/current'
 import { planWithItems } from '@/lib/plans'
+import { journeyFor } from '@/lib/journey'
 import { Page } from '../sections/frame'
 import { addItem, confirm, removeItem, revisePlan, saveItem, startPlanning } from './actions'
 
@@ -105,6 +106,10 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const msg = (await searchParams).msg
   const p = await currentProduct()
   if (!p) return <Page title="Plan" msg={msg}><p>No product yet. <Link href="/products/new">Add one</Link>.</p></Page>
+  const j = await journeyFor(p.id)
+  if (j && (j.step === 'research' || j.step === 'channels')) {
+    return <Page title="Plan" msg={msg}><p>The plan comes after research and choosing channels. <Link href="/">Continue on Home</Link>.</p></Page>
+  }
   const [cur] = await sql`select id from plans where product_id = ${p.id} and status = 'confirmed' and ends_on >= current_date order by starts_on limit 1`
   const [dr] = await sql`select id from plans where product_id = ${p.id} and status in ('draft', 'revising') order by id desc limit 1`
   const current = cur ? await planWithItems(cur.id) : null
@@ -148,8 +153,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
               </form>
               <form action={confirm} style={{ marginTop: 16 }}>
                 <input type="hidden" name="plan" value={draft.id} />
-                <button type="submit">Confirm this plan</button>
-                <span className="muted"> &nbsp;The writer starts from it right away.</span>
+                <button type="submit">Confirm and start the campaign</button>
+                <span className="muted"> &nbsp;From then on every item is written, checked by the AI reviewer and published on its day.</span>
               </form>
             </>}
         </section>

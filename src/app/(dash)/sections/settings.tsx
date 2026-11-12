@@ -1,4 +1,4 @@
-import { saveFacts, savePlaybook, saveProduct } from '../actions'
+import { saveFacts, savePlaybook, saveProduct, setActive } from '../actions'
 
 export function ProductForm({ p }: { p?: Record<string, any> }) {
   return (
@@ -12,6 +12,16 @@ export function ProductForm({ p }: { p?: Record<string, any> }) {
         <label>Language<input name="language" defaultValue={p?.language} size={6} placeholder="ko, en…" /></label>
         <label>Timezone<input name="timezone" defaultValue={p?.timezone ?? 'Asia/Seoul'} /></label>
       </div>
+      {!p && (
+        <fieldset className="choices-field">
+          <legend>Where to post (optional; you can choose after research)</legend>
+          <div className="choices">
+            {['x', 'linkedin', 'youtube', 'instagram', 'threads', 'tiktok', 'facebook', 'reddit', 'naver_blog'].map(pl => (
+              <label key={pl} className="choice"><input type="checkbox" name="platform" value={pl} /><span><b>{pl}</b></span></label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <label>Tone notes and cautions<textarea name="tone_notes" rows={3} defaultValue={p?.tone_notes} placeholder="How posts should sound, and anything they must always say or never say" /></label>
       <label>Extra banned words (one per line)<textarea name="banned_words" rows={3} defaultValue={p?.banned_words?.join('\n')} /></label>
       <button type="submit">{p ? 'Save' : 'Add product'}</button>
@@ -25,7 +35,13 @@ export async function SettingsSection({ p }: { p: Record<string, any> | null }) 
     <>
       {p && (
         <>
-          <h3>Product</h3>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <h3>Product</h3>
+            <form action={setActive}>
+              <input type="hidden" name="id" value={p.id} /><input type="hidden" name="active" value={String(!p.active)} />
+              <button className="ghost" type="submit">{p.active ? 'Pause this product' : 'Resume this product'}</button>
+            </form>
+          </div>
           <ProductForm p={p} />
           <h3>Profile bio link</h3>
           <p>Put this in the TikTok, YouTube and Instagram bio once: <code>{app}/l/{p.slug}</code></p>

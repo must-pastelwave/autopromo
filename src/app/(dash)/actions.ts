@@ -40,12 +40,14 @@ export async function saveProduct(f: FormData) {
     const rows = [...AUTOMATABLE.map(platform => ({ platform, automatable: true })), ...DRAFTS_ONLY.map(platform => ({ platform, automatable: false }))]
       .map(r => ({ ...r, product_id: p.id }))
     await sql`insert into channels ${sql(rows)}`
+    const picked = f.getAll('platform').map(String)
+    if (picked.length) await sql`update channels set enabled = true, started_at = now() where product_id = ${p.id} and platform = any(${picked})`
     ;(await cookies()).set(PRODUCT_COOKIE, p.slug, { path: '/', sameSite: 'lax', maxAge: 60 * 60 * 24 * 365 })
     const started = await dispatchAgent('auto')
     revalidatePath('/', 'layout')
-    redirect(`/plan?msg=${encodeURIComponent(started
-      ? 'Product added. The researcher is reading the site now; then draft the plan here.'
-      : 'Product added. The researcher reads the site at 05:00 KST; the plan is drafted after that.')}`)
+    redirect(`/?msg=${encodeURIComponent(started
+      ? 'Product added. The AI is reading the site now.'
+      : 'Product added. The AI starts reading the site within 15–30 minutes.')}`)
   }
   revalidatePath('/', 'layout')
   back('Saved')
@@ -105,4 +107,14 @@ export async function resolveWaiting(f: FormData) {
   const status = s(f, 'outcome') === 'posted' ? 'published' : 'skipped'
   await sql`update posts set status = ${status}, scheduled_for = coalesce(scheduled_for, now()) where id = ${Number(s(f, 'id'))} and status = 'waiting'`
   revalidatePath('/', 'layout')
+}
+
+/** Pause or resume a product: paused products get no research, planning, writing or publishing runs. */
+export async function setActive(f: FormData) {
+  await requireOwner()
+  const on = s(f, 'active') === 'true'
+  await sql`update products set active = ${on} where id = ${Number(s(f, 'id'))}`
+  if (on) await dispatchAgent('auto')
+  revalidatePath('/', 'layout')
+  back(on ? 'Resumed.' : 'Paused. Nothing runs for this product until you resume it.')
 }

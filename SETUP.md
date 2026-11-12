@@ -53,9 +53,17 @@ Then **Actions → agents → Run workflow → researcher** once to build the fa
 
 The agents run on **your own** Claude subscription, in your own repo, for your own products. Runs count toward your plan's usage limits. Prefer pay-per-use? Add an `ANTHROPIC_API_KEY` secret instead.
 
-## 5. Agree on a plan
+## 5. Follow the journey on Home
 
-Open **Plan**. After the researcher has read the site, the planner drafts a 4-week plan: goal, call to action, channels, themes, rules, and a calendar of posts. Change items yourself, or write what you want different and press **Ask the planner to revise**. When it's right, press **Confirm this plan**. Only confirmed plan items are ever written and posted. In the plan's last week the planner drafts the next one for you to confirm.
+Home walks each product through five steps and only lets you act on the current one:
+
+1. **Product**: its web page (you can tick channels here already).
+2. **Research**: the AI reads the site and writes the facts and profile. Automatic.
+3. **Channels**: tick where to post. Accounts can be connected later; posts wait until you do.
+4. **Plan**: the planner drafts 4 weeks (positioning, themes, a day-by-day calendar). Edit items or ask for changes, then **Confirm and start the campaign**. Confirming is the approval: from then on each item is written, checked by the AI reviewer and published on its day.
+5. **Running**: Home shows this week's items and what each is doing now. In the last week the next plan appears for you to confirm.
+
+The agents check every 15 minutes whether a product needs research, a plan or a kickoff, so each step usually moves on within 15–30 minutes. With `GITHUB_DISPATCH_TOKEN` set, it starts immediately.
 
 ## 6. Daily use, then hands-off
 
