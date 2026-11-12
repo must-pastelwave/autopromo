@@ -1,9 +1,9 @@
 import { runMaintenance } from '@/lib/publish'
+import { bearerMatches } from '@/lib/auth'
 
 // Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`.
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET
-  if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!bearerMatches(req, process.env.CRON_SECRET)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 })
   }
   await runMaintenance()

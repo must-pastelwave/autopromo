@@ -26,7 +26,7 @@ You'll need: a GitHub account, a Vercel account, a Claude Pro/Max subscription, 
 
 1. Create each social account **yourself**, in the app or a normal browser. Add "AI가 작성을 돕습니다" (or "Posts are written with AI") to every bio.
 2. Post once by hand from each account so it's healthy.
-3. Make a Zernio account and connect the accounts there. Copy the API key into `ZERNIO_API_KEY`.
+3. Make a Zernio account (zernio.com) and copy its API key into `ZERNIO_API_KEY` in Vercel. This is the only Zernio step: you connect the social accounts from our app (step 3 below).
 
 Never sign up or log in to social accounts with scripts or automated browsers. That gets accounts banned.
 
@@ -34,7 +34,7 @@ Never sign up or log in to social accounts with scripts or automated browsers. T
 
 ## 3. Add your product
 
-In the dashboard → **Settings → Add a product**: the URL tracked links should land on, target users, language, timezone, and extra banned words. Then **Channels**: switch on the channels you'll use and pick each one's Zernio account. Leave **Auto-publish off** for now ("Approve first").
+In the dashboard → **Settings → Add a product**: the URL tracked links should land on, target users, language, timezone, and extra banned words. Then **Channels**: switch on the channels you'll use and press **Connect** on each. You log in to TikTok, YouTube and so on yourself, and the account links back automatically. One account can serve several products; they then share its daily posts. Leave **Auto-publish off** for now ("Approve first").
 
 TikTok, YouTube and Instagram don't make links in captions clickable. Paste the bio link shown in Settings into each profile's bio once.
 

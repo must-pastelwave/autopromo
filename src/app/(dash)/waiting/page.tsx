@@ -32,6 +32,12 @@ export default async function Waiting() {
                 {x.slides.map((_: unknown, i: number) => <a key={i} href={`/api/slide/${x.id}/${i}.png?r=${x.revision}`} target="_blank"><img src={`/api/slide/${x.id}/${i}.png?r=${x.revision}`} alt={`slide ${i + 1}`} loading="lazy" /></a>)}
               </div>
             )}
+            {x.kind === 'video' && (
+              <details style={{ marginBottom: 8 }}>
+                <summary>▶ Preview video</summary>
+                <video src={`/api/video/${x.id}?r=${x.revision}`} controls preload="none" style={{ width: 270, height: 480, background: '#000' }} />
+              </details>
+            )}
             <div className="row">
               {x.automatable ? (
                 <form action={approveWaiting}><input type="hidden" name="id" value={x.id} /><button type="submit">Approve &amp; schedule</button></form>

@@ -102,6 +102,13 @@ test('youtube: first caption line is the title, max 100 chars', async () => {
   expect((await createPost(json('POST', ok))).status).toBe(201)
 })
 
+test('review: a revised post blocked again is dropped, not left blocked', async () => {
+  const { productId, channelId } = await seed()
+  const p = await insertPost(productId, channelId, { status: 'draft', revision: 1 })
+  const r = await review(json('POST', { verdict: 'block', reason: 'still wrong' }), ctx({ id: String(p.id) }))
+  expect((await r.json()).post.status).toBe('dropped')
+})
+
 test('list drafts includes the rules the reviewer needs', async () => {
   const { productId, channelId } = await seed()
   await insertPost(productId, channelId, { status: 'draft' })

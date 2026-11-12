@@ -32,14 +32,18 @@ function videoFields(platform: string, caption: string) {
   return {}
 }
 
-/** Fetch the post's rendered slides, make the mp4, and upload it to Zernio. */
-async function videoUrl(postId: number, slideUrls: string[], revision: number): Promise<string> {
-  const pngs = await Promise.all(slideUrls.map(async u => {
+const slideUrlsFor = (postId: number, count: number, revision: number) =>
+  // ?r= busts the 24h image cache when a revised post reuses the same id.
+  Array.from({ length: count }, (_, i) => `${appUrl()}/api/slide/${postId}/${i}.png?r=${revision}`)
+
+/** Fetch the post's rendered slides and make the mp4 (what gets posted, and the owner's preview). */
+export async function renderPostVideo(postId: number, slideCount: number, revision: number): Promise<Buffer> {
+  const pngs = await Promise.all(slideUrlsFor(postId, slideCount, revision).map(async u => {
     const r = await fetch(u)
     if (!r.ok) throw new Error(`slide ${u} returned ${r.status}`)
     return Buffer.from(await r.arrayBuffer())
   }))
-  return uploadMedia(await renderVideo(pngs), `post-${postId}-r${revision}.mp4`, 'video/mp4')
+  return renderVideo(pngs)
 }
 
 /** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
@@ -62,26 +66,31 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
   if (!row.zernio_account_id) return fail('channel not connected to Zernio')
   if (!appUrl()) return fail('APP_URL is not set')
 
+  // Slots are per Zernio account, so products sharing one account share its daily posts (the cap is this channel's per-day).
   const taken = await sql`
-    select scheduled_for from posts
-    where channel_id = ${row.channel_id} and id <> ${postId} and status in ('scheduled', 'published')
-      and scheduled_for > now() - interval '1 day'`
-  // ponytail: two publishes racing on one channel could pick the same slot; agents run one at a time.
+    select p.scheduled_for from posts p join channels c on c.id = p.channel_id
+    where (p.channel_id = ${row.channel_id} or (c.zernio_account_id = ${row.zernio_account_id} and c.platform = ${row.platform}))
+      and p.id <> ${postId} and p.status in ('scheduled', 'published')
+      and p.scheduled_for > now() - interval '1 day'`
+  // ponytail: two publishes racing on one account could pick the same slot; agents run one at a time.
   const when = nextSlot({
     now: new Date(), tz: row.timezone,
     perDay: row.platform === 'instagram' ? row.ig_per_day : row.platform === 'threads' ? row.threads_per_day : 1,
     startedAt: row.started_at, taken: taken.map(t => t.scheduled_for),
   })
   const slides: { photo_track?: string }[] = row.slides ?? []
-  // ?r= busts the 24h image cache when a revised post reuses the same id.
-  const slideUrls = slides.map((_, i) => `${appUrl()}/api/slide/${postId}/${i}.png?r=${row.revision}`)
+  const slideUrls = slideUrlsFor(postId, slides.length, row.revision)
   const isVideo = row.kind === 'video'
   try {
     const { zernioId } = await createPost({
       postId, accountId: row.zernio_account_id, platform: row.platform,
       caption: captionFor(row.platform, row.caption, row.link_code),
-      mediaUrls: isVideo ? [await videoUrl(postId, slideUrls, row.revision)] : slideUrls,
+      mediaUrls: isVideo
+        ? [await uploadMedia(await renderPostVideo(postId, slides.length, row.revision), `post-${postId}-r${row.revision}.mp4`, 'video/mp4')]
+        : slideUrls,
       scheduledFor: when,
+      // A new key per revision and for the retry: Zernio would replay a failed attempt under the same key.
+      idempotencyKey: `post-${postId}-r${row.revision}${opts.retry ? '-retry' : ''}`,
       ...(isVideo ? { mediaType: 'video' as const, ...videoFields(row.platform, row.caption) } : {}),
     })
     await sql`update posts set status = 'scheduled', scheduled_for = ${when}, zernio_post_id = ${zernioId}, error = null where id = ${postId}`
@@ -94,7 +103,11 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
 
 /** Periodic upkeep: retry transient failures once, sync published state, expire old drafts. */
 export async function runMaintenance(): Promise<void> {
-  await sql`update posts set status = 'expired' where status = 'waiting' and created_at < now() - interval '7 days'`
+  await sql`update posts set status = 'expired' where status = 'waiting' and status_changed_at < now() - interval '7 days'`
+
+  // Passed review but publish never ran to the end (a crash or timeout): try again.
+  const stuck = await sql`select id from posts where status = 'passed' and status_changed_at < now() - interval '10 minutes'`
+  for (const s of stuck) await publish(s.id)
 
   const retry = await sql`
     select id from posts where status = 'failed'

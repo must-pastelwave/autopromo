@@ -36,3 +36,16 @@ alter table channels add column if not exists auto_publish boolean not null defa
 alter table products alter column threads_per_day set default 1;
 alter table posts drop constraint if exists posts_kind_check;
 alter table posts add constraint posts_kind_check check (kind in ('carousel','text','video'));
+-- When a post last changed status: waiting expiry and stuck-post recovery count from here.
+alter table posts add column if not exists status_changed_at timestamptz not null default now();
+create or replace function stamp_status_change() returns trigger language plpgsql as $$
+begin
+  if new.status is distinct from old.status then new.status_changed_at := now(); end if;
+  return new;
+end $$;
+create or replace trigger posts_status_changed before update on posts for each row execute function stamp_status_change();
+-- Failed dashboard logins, for a simple global rate limit. Only timestamps.
+create table if not exists login_failures (at timestamptz not null default now());
+create index if not exists login_failures_at on login_failures(at);
+-- One Zernio profile per product, created when the owner first connects an account from the Channels page.
+alter table products add column if not exists zernio_profile_id text;

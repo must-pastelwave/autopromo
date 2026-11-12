@@ -14,8 +14,8 @@ async function unsplash(q: string, n: number): Promise<Photo[]> {
   if (!key) return []
   const u = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&orientation=portrait&per_page=${n}`
   const j = await getJson(u, `Client-ID ${key}`)
-  return (j?.results ?? []).map((p: any) => ({
-    url: p.urls.regular, credit: `${p.user.name} / Unsplash`, source: 'unsplash' as const, track: p.links.download_location,
+  return (j?.results ?? []).filter((p: any) => typeof p?.urls?.regular === 'string').map((p: any) => ({
+    url: p.urls.regular, credit: `${p.user?.name ?? 'Unknown'} / Unsplash`, source: 'unsplash' as const, track: p.links?.download_location,
   }))
 }
 
@@ -24,7 +24,8 @@ async function pexels(q: string, n: number): Promise<Photo[]> {
   if (!key) return []
   const u = `https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&orientation=portrait&per_page=${n}`
   const j = await getJson(u, key)
-  return (j?.photos ?? []).map((p: any) => ({ url: p.src.large2x, credit: `${p.photographer} / Pexels`, source: 'pexels' as const }))
+  return (j?.photos ?? []).filter((p: any) => typeof p?.src?.large2x === 'string')
+    .map((p: any) => ({ url: p.src.large2x, credit: `${p.photographer ?? 'Unknown'} / Pexels`, source: 'pexels' as const }))
 }
 
 export async function searchPhotos(q: string, n: number): Promise<Photo[]> {

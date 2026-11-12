@@ -7,11 +7,14 @@ function same(a: string, b: string): boolean {
   return x.length === y.length && timingSafeEqual(x, y)
 }
 
+/** `Authorization: Bearer <secret>`, compared in constant time. An unset or empty secret matches nothing. */
+export function bearerMatches(req: Request, secret: string | undefined): boolean {
+  return !!secret && same(req.headers.get('authorization') ?? '', `Bearer ${secret}`)
+}
+
 /** Agents send `Authorization: Bearer <AGENT_TOKEN>`. No token configured = nobody gets in. */
 export function checkAgent(req: Request): boolean {
-  const token = process.env.AGENT_TOKEN
-  if (!token) return false
-  return same(req.headers.get('authorization') ?? '', `Bearer ${token}`)
+  return bearerMatches(req, process.env.AGENT_TOKEN)
 }
 
 export function sessionValue(): string {

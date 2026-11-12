@@ -7,10 +7,13 @@ You run unattended on a schedule. Nobody reads your output live, so do the job f
 Everything goes through the app's HTTP API. `$APP_URL` and `$AGENT_TOKEN` are set in your environment.
 
 ```bash
-curl -sS -H "Authorization: Bearer $AGENT_TOKEN" "$APP_URL/api/agent/products"
-curl -sS -X POST -H "Authorization: Bearer $AGENT_TOKEN" -H 'content-type: application/json' \
-  -d @body.json "$APP_URL/api/agent/posts"
+curl -sS --variable %APP_URL --variable %AGENT_TOKEN --expand-header 'Authorization: Bearer {{AGENT_TOKEN}}' \
+  --expand-url '{{APP_URL}}/api/agent/products' -o /tmp/products.json -w '%{http_code}\n'
+curl -sS -X POST --variable %APP_URL --variable %AGENT_TOKEN --expand-header 'Authorization: Bearer {{AGENT_TOKEN}}' \
+  -H 'content-type: application/json' --data-binary @/tmp/body.json --expand-url '{{APP_URL}}/api/agent/posts'
 ```
+
+Shell `$VARIABLES`, pipes and other commands are blocked; only plain `curl` commands, Read, Write, Edit and WebFetch are allowed. Use the `--variable` form above exactly, save responses with `-o` and read them with Read.
 
 | Call | Use |
 |---|---|
@@ -25,7 +28,7 @@ curl -sS -X POST -H "Authorization: Bearer $AGENT_TOKEN" -H 'content-type: appli
 | `GET /api/agent/photos?q=<english query>&n=5` | licensed stock photos `{url, credit, track}` |
 | `POST /api/agent/maintenance` | call once at the very end of every run |
 
-Write JSON bodies to a file and send with `-d @file` so Korean text and quotes survive. If a call returns 4xx, read the error, fix the body, and retry once. Don't loop.
+Write JSON bodies to a file with Write and send with `--data-binary @file` so Korean text and quotes survive. If a call returns 4xx, read the error, fix the body, and retry once. Don't loop.
 
 ## The rules every post must follow
 

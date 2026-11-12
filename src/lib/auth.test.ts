@@ -1,5 +1,5 @@
 import { test, expect, beforeEach } from 'vitest'
-import { checkAgent, sessionValue, isOwnerCookie } from './auth'
+import { checkAgent, sessionValue, isOwnerCookie, bearerMatches } from './auth'
 
 const req = (h?: string) => new Request('http://x/api/agent/products', { headers: h ? { authorization: h } : {} })
 
@@ -19,4 +19,12 @@ test('owner cookie rejects junk and unset password', () => {
   expect(isOwnerCookie(undefined)).toBe(false)
   const v = sessionValue(); delete process.env.DASHBOARD_PASSWORD
   expect(isOwnerCookie(v)).toBe(false)
+})
+
+test('bearerMatches: exact secret only, unset secret never', () => {
+  expect(bearerMatches(req('Bearer s3'), 's3')).toBe(true)
+  expect(bearerMatches(req('Bearer s3x'), 's3')).toBe(false)
+  expect(bearerMatches(req(), 's3')).toBe(false)
+  expect(bearerMatches(req('Bearer '), undefined)).toBe(false)
+  expect(bearerMatches(req('Bearer '), '')).toBe(false)
 })

@@ -20,5 +20,6 @@ export function trackedUrl(productUrl: string, p: { channel: string; postId: num
 
 /** Link-preview crawlers and scripts fetch every posted link; they are not clicks. */
 export function isBot(ua: string | null): boolean {
-  return !ua || /bot|crawl|spider|externalhit|externalagent|preview|curl|wget/i.test(ua)
+  // Yeti = Naver, Daum = Kakao search, kakaotalk-scrap = KakaoTalk link previews (the in-app browser says KAKAOTALK).
+  return !ua || /bot|crawl|spider|externalhit|externalagent|preview|curl|wget|yeti|daum|kakaotalk-scrap|whatsapp/i.test(ua)
 }
