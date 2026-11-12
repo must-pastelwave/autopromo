@@ -90,20 +90,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <div className="two">
         <section>
           <h2>Top posts</h2>
-          <table>
+          <div className="scroll"><table>
             <thead><tr><th>Channel</th><th>Topic</th><th>Sign-ups</th><th>Clicks</th></tr></thead>
             <tbody>
               {top.map(t => <tr key={t.id}><td>{t.platform}</td><td>{t.topic}</td><td>{t.signups}</td><td>{t.clicks}</td></tr>)}
               {top.length === 0 && <tr><td colSpan={4} className="muted">Nothing posted yet.</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </section>
         <section>
           <h2>Coming up next</h2>
-          <table><tbody>
+          <div className="scroll"><table><tbody>
             {next.map(n => <tr key={n.id}><td>{fmt(n.scheduled_for, p.timezone)}</td><td>{n.platform}</td><td>{n.topic}</td></tr>)}
             {next.length === 0 && <tr><td className="muted">Nothing scheduled.</td></tr>}
-          </tbody></table>
+          </tbody></table></div>
         </section>
       </div>
 

@@ -47,24 +47,35 @@ function Calendar({ plan, platforms, editable }: { plan: Plan; platforms: string
             <tbody>
               {items.filter(i => weekOf(plan.starts, i.day) === w).map(i => {
                 const open = editable && i.status === 'planned'
-                const f = `it${i.id}`
                 return (
                   <tr key={i.id}>
-                    <td>{open ? <input form={f} name="day" type="date" defaultValue={i.day} min={plan.starts} max={plan.ends} aria-label="Day" /> : i.day}</td>
-                    <td>{open ? <select form={f} name="platform" defaultValue={i.platform} aria-label="Channel">{platforms.map(p => <option key={p}>{p}</option>)}</select> : i.platform}<div className="muted">{i.format}</div></td>
-                    <td>{open ? <input form={f} name="theme" defaultValue={i.theme} aria-label="Theme" /> : i.theme}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{i.day.slice(5)}</td>
+                    <td>{i.platform}<div className="muted">{i.format}</div></td>
+                    <td>{i.theme}</td>
                     <td>
-                      {open ? <>
-                        <input form={f} name="topic" defaultValue={i.topic} style={{ width: '100%' }} aria-label="Topic" />
-                        <textarea form={f} name="angle" defaultValue={i.angle} rows={2} style={{ width: '100%', marginTop: 4 }} aria-label="Angle" />
-                      </> : <><b>{i.topic}</b><div className="muted">{i.angle}</div></>}
+                      <b>{i.topic}</b><div className="muted">{i.angle}</div>
                       {i.facts?.length > 0 && <div className="muted">uses facts {i.facts.map((n: number) => n + 1).join(', ')}</div>}
                     </td>
                     <td className={`s-${i.status}`}>{i.status}</td>
-                    {editable && <td>{open && <div className="row">
-                      <form id={f} action={saveItem}><input type="hidden" name="id" value={i.id} /><button className="ghost" type="submit">Save</button></form>
-                      <form action={removeItem}><input type="hidden" name="id" value={i.id} /><button className="ghost" type="submit">Remove</button></form>
-                    </div>}</td>}
+                    {editable && <td>{open && (
+                      <details className="edit">
+                        <summary>Edit</summary>
+                        <div className="pop">
+                          <form action={saveItem} className="stack">
+                            <input type="hidden" name="id" value={i.id} />
+                            <div className="row">
+                              <label>Day<input name="day" type="date" defaultValue={i.day} min={plan.starts} max={plan.ends} /></label>
+                              <label>Channel<select name="platform" defaultValue={i.platform}>{platforms.map(p => <option key={p}>{p}</option>)}</select></label>
+                            </div>
+                            <label>Theme<input name="theme" defaultValue={i.theme} /></label>
+                            <label>Topic<input name="topic" defaultValue={i.topic} /></label>
+                            <label>Angle<textarea name="angle" defaultValue={i.angle} rows={4} /></label>
+                            <div className="row"><button type="submit">Save</button></div>
+                          </form>
+                          <form action={removeItem} style={{ marginTop: 8 }}><input type="hidden" name="id" value={i.id} /><button className="ghost" type="submit">Remove item</button></form>
+                        </div>
+                      </details>
+                    )}</td>}
                   </tr>
                 )
               })}
