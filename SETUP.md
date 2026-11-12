@@ -1,6 +1,6 @@
 # Setup (about 30 minutes)
 
-You'll need: a GitHub account, a Vercel account, an Anthropic API key, a Zernio account, and the social accounts you'll post from.
+You'll need: a GitHub account, a Vercel account, a Claude Pro/Max subscription, a Zernio account, and the social accounts you'll post from.
 
 ## 1. Deploy the app
 
@@ -40,14 +40,14 @@ For Instagram, paste the link-in-bio URL shown in Settings into the Instagram bi
 
 In your fork on GitHub → **Settings → Secrets and variables → Actions**:
 
-- Secrets: `ANTHROPIC_API_KEY`, `APP_URL`, `AGENT_TOKEN` (same value as in Vercel).
+- Secrets: `CLAUDE_CODE_OAUTH_TOKEN` (run `claude setup-token` in your terminal and paste what it prints), `APP_URL`, `AGENT_TOKEN` (same value as in Vercel).
 - Variable (optional): `AGENT_MODEL` (default `claude-opus-5-5`; `claude-sonnet-5-5` costs about half).
 
 **Heads-up:** GitHub turns off scheduled workflows after 60 days with no commits to the repo. If the Actions tab says the workflow is disabled, click **Enable workflow** (or push any small commit once a month).
 
 Then **Actions → agents → Run workflow → researcher** once to build the fact sheet. Check it in Settings and fix anything wrong. The schedule takes over from there. Actions must be enabled on forks (Actions tab → enable).
 
-The agents use your **API key**, never a Claude subscription login. Anthropic doesn't allow third-party tools to run on claude.ai logins.
+The agents run on **your own** Claude subscription, in your own repo, for your own products. Runs count toward your plan's usage limits. Prefer pay-per-use? Add an `ANTHROPIC_API_KEY` secret instead.
 
 ## 5. Daily use, then hands-off
 
