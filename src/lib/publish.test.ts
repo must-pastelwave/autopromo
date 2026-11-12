@@ -59,13 +59,18 @@ test('207 → failed with the error kept', async () => {
   expect(row.error).toMatch(/zernio 207.*media rejected/)
 })
 
-test('channel without Zernio account → failed, not sent', async () => {
+test('channel not connected yet → the post waits, and goes out once the account is connected', async () => {
   const { productId, channelId } = await seed({ account: null })
-  const f = zernio(201, {})
+  const f = zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
   const p = await insertPost(productId, channelId)
   await publish(p.id)
-  expect((await get(p.id))).toMatchObject({ status: 'failed', error: 'channel not connected to Zernio' })
+  expect((await get(p.id))).toMatchObject({ status: 'waiting', error: 'connect your threads account to post this' })
   expect(f).not.toHaveBeenCalled()
+  await runMaintenance()
+  expect((await get(p.id)).status).toBe('waiting')
+  await sql`update channels set zernio_account_id = 'acc1' where id = ${channelId}`
+  await runMaintenance()
+  expect((await get(p.id))).toMatchObject({ status: 'scheduled', error: null })
 })
 
 test('auth-looking error flags the channel for reconnect', async () => {
@@ -268,4 +273,36 @@ test('shared account: another product\'s post on the same Zernio account takes t
   const [x, y] = [await get(first.id), await get(second.id)]
   expect(y.status).toBe('scheduled')
   expect(y.scheduled_for.getTime()).not.toBe(x.scheduled_for.getTime())
+})
+
+test('posts per day come from the channel: per_day 2 → two slots the same day', async () => {
+  const { productId, channelId } = await seed()
+  await sql`update channels set per_day = 2 where id = ${channelId}`
+  zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
+  const a = await insertPost(productId, channelId), b = await insertPost(productId, channelId)
+  await publish(a.id); await publish(b.id)
+  const [x, y] = [(await get(a.id)).scheduled_for, (await get(b.id)).scheduled_for]
+  // One a day would put them exactly 24h apart.
+  expect(Math.abs(y.getTime() - x.getTime())).toBeLessThan(86400_000)
+})
+
+test('link-in-bio note follows the product language', async () => {
+  const { productId, channelId } = await seed({ platform: 'instagram' })
+  await sql`update products set language = 'en' where id = ${productId}`
+  const f = zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
+  const slides = Array.from({ length: 5 }, (_, i) => ({ text: `tip ${i}` }))
+  const p = await insertPost(productId, channelId, { kind: 'carousel', slides: sql.json(slides), caption: 'Winter tips' })
+  await publish(p.id)
+  expect(JSON.parse(String((f.mock.calls[0] as unknown as [string, RequestInit])[1].body)).content).toBe('Winter tips\n\nLink in our profile')
+})
+
+test('a post is never scheduled before its plan item\'s day', async () => {
+  const { productId, channelId } = await seed()
+  zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
+  const [pl] = await sql`insert into plans (product_id, status, starts_on, ends_on) values (${productId}, 'confirmed', current_date, current_date + 27) returning id`
+  const [it] = await sql`insert into plan_items (plan_id, day, platform, format, theme, topic, status) values (${pl.id}, current_date + 5, 'threads', 'post', 't', 'x', 'written') returning id, to_char(day, 'YYYY-MM-DD') as day`
+  const p = await insertPost(productId, channelId, { plan_item_id: it.id })
+  await publish(p.id)
+  const when = (await get(p.id)).scheduled_for as Date
+  expect(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(when) >= it.day).toBe(true)
 })

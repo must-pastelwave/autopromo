@@ -1,20 +1,25 @@
 # autopromo agents. Runs Claude Code on YOUR Claude subscription (Settings → Secrets → CLAUDE_CODE_OAUTH_TOKEN,
 # made with `claude setup-token`). An ANTHROPIC_API_KEY secret works instead if you prefer pay-per-use.
-# Times are UTC: 21:00 UTC = 06:00 KST. Change them freely.
+# Times are UTC: 22:00 UTC = 07:00 KST. Change them freely.
+#
+# "auto" runs every 15 minutes and only starts Claude when a product needs something:
+#   new or week-old product → researcher, then planner · owner asked for a plan or a revision → planner
+#   plan just confirmed → writer, then reviewer.  Nothing needed → the run ends in seconds, no AI used.
 name: agents
 
 on:
   schedule:
-    - cron: "0 21 * * 1"   # researcher: Tue 06:00 KST
-    - cron: "0 22 * * *"   # writer:     daily 07:00 KST
-    - cron: "0 23 * * *"   # reviewer:   daily 08:00 KST
-    - cron: "0 11 * * 0"   # analyst:    Sun 20:00 KST
+    - cron: "*/15 * * * *" # auto:     the journey (research → plan → kickoff), only when needed
+    - cron: "0 22 * * *"   # writer:   daily 07:00 KST
+    - cron: "0 23 * * *"   # reviewer: daily 08:00 KST
+    - cron: "0 11 * * 0"   # analyst:  Sun 20:00 KST
   workflow_dispatch:
     inputs:
       agent:
-        description: Which agent to run now
+        description: Which agent to run now (auto = whatever the products need)
         type: choice
-        options: [researcher, writer, reviewer, analyst]
+        default: auto
+        options: [auto, researcher, planner, writer, reviewer, analyst]
 
 permissions:
   contents: read
@@ -23,38 +28,83 @@ concurrency:
   group: autopromo-agents   # one agent at a time; the app assumes it
   cancel-in-progress: false
 
+env:
+  APP_URL: ${{ secrets.APP_URL }}
+  AGENT_TOKEN: ${{ secrets.AGENT_TOKEN }}
+
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
-      - name: Pick the agent
+      - name: Decide what to run
         id: pick
         run: |
+          api() { curl -sSf -H "Authorization: Bearer $AGENT_TOKEN" "$APP_URL/api/agent/$1"; }
           case "${{ github.event.schedule }}" in
-            "0 21 * * 1") a=researcher; t=40 ;;
-            "0 22 * * *") a=writer;     t=80 ;;
-            "0 23 * * *") a=reviewer;   t=50 ;;
-            "0 11 * * 0") a=analyst;    t=20 ;;
-            *) a="${{ inputs.agent }}"; case "$a" in researcher) t=40;; writer) t=80;; reviewer) t=50;; *) t=20;; esac ;;
+            "0 22 * * *") jobs="writer" ;;
+            "0 23 * * *") jobs="reviewer" ;;
+            "0 11 * * 0") jobs="analyst" ;;
+            *) jobs="${{ inputs.agent || 'auto' }}" ;;
           esac
-          echo "agent=$a" >> "$GITHUB_OUTPUT"; echo "turns=$t" >> "$GITHUB_OUTPUT"
+          research=""; plan=""; kickoff=""
+          if [ "$jobs" = auto ]; then
+            p=$(api products)
+            research=$(echo "$p" | jq -r '[.products[] | select(.needs_research) | .id] | join(" ")')
+            plan=$(echo "$p" | jq -r '[.products[] | select(.needs_plan) | .id] | join(" ")')
+            kickoff=$(echo "$p" | jq -r '[.products[] | select(.kickoff_plan_id != null) | .kickoff_plan_id] | join(" ")')
+            jobs=""
+            [ -n "$research" ] && jobs="researcher planner"
+            [ -n "$plan" ] && [ -z "$research" ] && jobs="planner"
+            [ -n "$kickoff" ] && jobs="$jobs writer reviewer"
+          fi
+          jobs=$(echo $jobs)
+          turns=0
+          for j in $jobs; do case $j in researcher|planner) turns=$((turns+40));; writer) turns=$((turns+80));; reviewer) turns=$((turns+50));; *) turns=$((turns+20));; esac; done
+          echo "Jobs: ${jobs:-none}"
+          {
+            echo "jobs=$jobs"; echo "turns=$turns"
+            echo "research=$research"; echo "plan=$(echo $plan $research)"; echo "kickoff=$kickoff"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Tell the app the run started
+        if: steps.pick.outputs.jobs != ''
+        run: |
+          body=$(jq -nc --arg jobs "${{ steps.pick.outputs.jobs }}" --arg url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --argjson products "[$(echo ${{ steps.pick.outputs.plan }} | tr ' ' ',')]" --argjson plans "[$(echo ${{ steps.pick.outputs.kickoff }} | tr ' ' ',')]" \
+            '{gh_run_id: ${{ github.run_id }}, jobs: $jobs, product_ids: $products, plan_ids: $plans, status: "running", url: $url}')
+          curl -sS -X POST -H "Authorization: Bearer $AGENT_TOKEN" -H 'content-type: application/json' -d "$body" "$APP_URL/api/agent/runs" > /dev/null || true
 
       - uses: actions/checkout@v4
+        if: steps.pick.outputs.jobs != ''
 
       - uses: anthropics/claude-code-action@v1
-        env:
-          APP_URL: ${{ secrets.APP_URL }}
-          AGENT_TOKEN: ${{ secrets.AGENT_TOKEN }}
+        id: claude
+        if: steps.pick.outputs.jobs != ''
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           prompt: |
-            You are the autopromo ${{ steps.pick.outputs.agent }}.
-            Read agents/common.md, then agents/${{ steps.pick.outputs.agent }}.md, and do that job now.
+            You are the autopromo agent. Do these jobs in this order, each one completely: ${{ steps.pick.outputs.jobs }}.
+            Read agents/common.md once, then for each job read agents/<job>.md and do that job before starting the next.
+            When a job file says to stop, that job is finished: go on to the next job.
           # The turn cap keeps a confused run from running up the bill.
           claude_args: |
             --model ${{ vars.AGENT_MODEL || 'claude-opus-5-5' }}
             --max-turns ${{ steps.pick.outputs.turns }}
-            --allowedTools "Read,Write,Edit,WebFetch,Bash(curl:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,WebFetch,Bash(curl:*)"
+
+      # Record the attempt even if the agent failed, so the 15-minute check waits 3 hours before trying again.
+      - name: Record what ran
+        if: always() && steps.pick.outputs.jobs != ''
+        run: |
+          post() { curl -sS -X POST -H "Authorization: Bearer $AGENT_TOKEN" -H 'content-type: application/json' -d "$2" "$APP_URL/api/agent/$1" > /dev/null; }
+          for id in ${{ steps.pick.outputs.research }}; do post "products/$id/tried" '{"agent":"researcher"}'; done
+          case " ${{ steps.pick.outputs.jobs }} " in *" planner "*) for id in ${{ steps.pick.outputs.plan }}; do post "products/$id/tried" '{"agent":"planner"}'; done ;; esac
+          for id in ${{ steps.pick.outputs.kickoff }}; do post "plans/$id/kickoff" '{}'; done
+          status=$([ "${{ steps.claude.outcome }}" = success ] && echo done || echo failed)
+          body=$(jq -nc --arg jobs "${{ steps.pick.outputs.jobs }}" --arg st "$status" \
+            --argjson products "[$(echo ${{ steps.pick.outputs.plan }} | tr ' ' ',')]" --argjson plans "[$(echo ${{ steps.pick.outputs.kickoff }} | tr ' ' ',')]" \
+            '{gh_run_id: ${{ github.run_id }}, jobs: $jobs, product_ids: $products, plan_ids: $plans, status: $st}')
+          post runs "$body"

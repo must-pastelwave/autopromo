@@ -1,5 +1,7 @@
 # First product: Stay2U
 
+An example of a product as configured. Nothing here is built into the app: a new product needs only its URL, and the researcher fills in the rest.
+
 ## Settings
 
 | Field | Value |
@@ -8,8 +10,8 @@
 | Name | Stay2U |
 | Target users | 국내외 여행을 자주 다니는 30–50대 직장인, 숙박비를 꾸준히 지원받고 싶은 사람 (adjust with the team) |
 | Language / timezone | ko / Asia/Seoul |
-| Per day | Instagram 1, Threads 1 |
-| Tone notes | 정중하고 차분하게, 정보 위주로. 보증금은 항상 "3년 만기 후 정산을 거쳐 반환" 조건과 함께. |
+| Per day | 1 per channel (set in Channels) |
+| Tone notes | 정중하고 차분하게, 정보 위주로. 보증금은 항상 "3년 만기 후 정산을 거쳐 반환" 조건과 함께. 객실 1박 요금처럼 매일 바뀌는 가격은 쓰지 않아요. |
 | Extra banned words | 수익, 원금 보장, 공짜, 무료 숙박, 무조건 |
 
 Channels: Instagram + Threads on, **Approve first**. Everything else off.

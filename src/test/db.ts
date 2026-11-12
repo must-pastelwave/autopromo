@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db'
 
 export async function resetDb() {
-  await sql`truncate clicks, posts, channels, products restart identity cascade`
+  await sql`truncate clicks, posts, plan_items, plans, channels, products, agent_runs restart identity cascade`
 }
 
 export async function seed(o: { platform?: string; automatable?: boolean; account?: string | null; auto?: boolean } = {}) {
@@ -22,4 +22,12 @@ export async function insertPost(productId: number, channelId: number, extra: Re
   }
   const [p] = await sql`insert into posts ${sql(row)} returning *`
   return p
+}
+
+/** A planned calendar item for the product's platform, in a plan with the given status (confirmed by default). */
+export async function planItem(productId: number, platform: string, o: { planStatus?: string; itemStatus?: string } = {}) {
+  const [plan] = await sql`insert into plans (product_id, status, starts_on, ends_on) values (${productId}, ${o.planStatus ?? 'confirmed'}, current_date - 1, current_date + 26) returning id`
+  const format = platform === 'instagram' ? 'carousel' : ['youtube', 'tiktok'].includes(platform) ? 'video' : ['naver_blog', 'naver_cafe', 'reddit', 'hackernews'].includes(platform) ? 'draft' : 'post'
+  const [it] = await sql`insert into plan_items (plan_id, day, platform, format, theme, topic, status) values (${plan.id}, current_date, ${platform}, ${format}, 'Explainers', 'Five layers', ${o.itemStatus ?? 'planned'}) returning id`
+  return it.id as number
 }

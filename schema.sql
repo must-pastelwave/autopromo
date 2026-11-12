@@ -49,3 +49,36 @@ create table if not exists login_failures (at timestamptz not null default now()
 create index if not exists login_failures_at on login_failures(at);
 -- One Zernio profile per product, created when the owner first connects an account from the Channels page.
 alter table products add column if not exists zernio_profile_id text;
+-- Dynamic products: posts per day live on each channel; the researcher fills blank product fields.
+alter table channels add column if not exists per_day int not null default 1;
+update channels c set per_day = greatest(1, pr.ig_per_day) from products pr where pr.id = c.product_id and c.platform = 'instagram' and c.per_day = 1;
+update channels c set per_day = greatest(1, pr.threads_per_day) from products pr where pr.id = c.product_id and c.platform = 'threads' and c.per_day = 1;
+alter table products add column if not exists researched_at timestamptz;
+alter table products alter column audience set default '';
+alter table products alter column language set default '';
+-- Plans: every post comes from an item of a plan the owner confirmed.
+create table if not exists plans (
+  id serial primary key, product_id int not null references products,
+  status text not null default 'draft' check (status in ('draft','revising','confirmed','done','superseded')),
+  starts_on date not null, ends_on date not null,
+  strategy jsonb not null default '{}',   -- {goal, cta, audience, channels:[{platform, why}], themes:[{name, why}], rules:[...]}
+  feedback text not null default '', revision int not null default 0,
+  created_at timestamptz not null default now(), confirmed_at timestamptz);
+create index if not exists plans_product on plans(product_id, starts_on);
+create table if not exists plan_items (
+  id serial primary key, plan_id int not null references plans on delete cascade,
+  day date not null, platform text not null,
+  format text not null check (format in ('post','carousel','video','draft')),
+  theme text not null, topic text not null, angle text not null default '', facts int[] not null default '{}',
+  status text not null default 'planned' check (status in ('planned','written','skipped')));
+create index if not exists plan_items_plan on plan_items(plan_id, day);
+alter table posts add column if not exists plan_item_id int references plan_items;
+-- The journey: when each agent last tried a product (bounds retries), and when a confirmed plan was kicked off.
+alter table products add column if not exists agent_tried jsonb not null default '{}';
+alter table plans add column if not exists kicked_off_at timestamptz;
+-- Agent runs, so the owner can see queued → running → done with times instead of guessing.
+create table if not exists agent_runs (
+  id serial primary key, gh_run_id bigint unique, jobs text not null, product_ids int[] not null default '{}',
+  status text not null check (status in ('queued','running','done','failed')),
+  url text, requested_at timestamptz not null default now(), started_at timestamptz, finished_at timestamptz);
+create index if not exists agent_runs_products on agent_runs using gin (product_ids);

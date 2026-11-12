@@ -19,6 +19,12 @@ function zoned(tz: string, y: number, m: number, d: number, h: number, mi: numbe
   return new Date(guess - offset)
 }
 
+/** Midnight at the start of a calendar day (YYYY-MM-DD) in a timezone. */
+export function startOfDay(tz: string, day: string): Date {
+  const [y, m, d] = day.split('-').map(Number)
+  return zoned(tz, y, m, d, 0, 0)
+}
+
 /**
  * Next free publish time: perDay slots spread over 09:00–21:00 local, each at +7 min.
  * First 14 days after startedAt run at half volume (at least 1/day).

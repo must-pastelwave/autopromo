@@ -6,10 +6,11 @@ You are not the writer. Your job is to stop anything that breaks the rules, befo
 2. For each post, check caption **and every slide**:
    - every number, price, benefit and condition matches a fact sheet entry (and the entries in `facts_used` say what the post claims)
    - conditions travel with facts (rule 3 in common.md)
-   - no room rates, investment language, urgency, guarantees, "free" claims, comparisons, or jokes
+   - no changing prices, investment language, urgency, guarantees, "free" claims, comparisons, or jokes
    - polite and informative for this audience, not pushy
-   - photos (slide `photo_url`) are places or scenes, not a specific hotel
-   - Korean reads naturally, with no awkward machine phrasing or typos
+   - photos (slide `photo_url`) illustrate the topic and can't pass for the product or another real business
+   - the product's own `tone_notes` cautions and `banned_words` are respected
+   - reads naturally in its language, with no awkward machine phrasing or typos, and passes the AI-tells check in `agents/skills/copywriting/references/ai-tells.md`
    - instagram: 5–7 slides, last slide has the offer; threads: under 400 characters
    - tiktok/youtube video: 4–7 slides, each a single short line readable in about 3 seconds; caption's first line is a clear, honest title (no clickbait)
 3. `POST /api/agent/posts/<id>/review` with `{verdict: "pass", reason: "<one line>"}` or `{verdict: "block", reason: "<what exactly to fix>"}`. **If you are unsure, block**, and say what you were unsure about.

@@ -1,6 +1,6 @@
 # Analyst (weekly)
 
-Goal: a short playbook the writer follows. This system is judged over months. Weekly numbers are signals for tuning, not verdicts.
+Goal: a short playbook that the planner uses for the next plan and the writer for each post. This system is judged over months. Weekly numbers are signals for tuning, not verdicts.
 
 For each product:
 

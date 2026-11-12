@@ -19,6 +19,8 @@ You'll need: a GitHub account, a Vercel account, a Claude Pro/Max subscription, 
 | `ZERNIO_API_KEY` | from Zernio (step 2) |
 | `UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY` | optional, free keys from unsplash.com/developers and pexels.com/api. Without them slides are text on a plain background |
 | `APP_URL` | your Vercel URL, e.g. `https://autopromo-you.vercel.app` |
+| `GITHUB_REPO` | your fork, e.g. `you/autopromo`, so the app can start agent runs right away |
+| `GITHUB_DISPATCH_TOKEN` | a fine-grained GitHub token for that repo with **Actions: Read and write** (github.com/settings/personal-access-tokens). Without it, agents only run on their schedule |
 
 6. Redeploy. Open the URL, sign in.
 
@@ -34,7 +36,7 @@ Never sign up or log in to social accounts with scripts or automated browsers. T
 
 ## 3. Add your product
 
-In the dashboard → **Settings → Add a product**: the URL tracked links should land on, target users, language, timezone, and extra banned words. Then **Channels**: switch on the channels you'll use and press **Connect** on each. You log in to TikTok, YouTube and so on yourself, and the account links back automatically. One account can serve several products; they then share its daily posts. Leave **Auto-publish off** for now ("Approve first").
+In the dashboard → **Settings → Add a product**: just the product page URL (where tracked links should land). Name, target users, language, tone and banned words are optional: the researcher fills any you leave blank from the site the next morning (05:00 KST), then writing starts the morning after. Whatever you type is never overwritten. Then **Channels**: switch on the channels you'll use and press **Connect** on each. You log in to TikTok, YouTube and so on yourself, and the account links back automatically. One account can serve several products; they then share its daily posts. Leave **Auto-publish off** for now ("Approve first").
 
 TikTok, YouTube and Instagram don't make links in captions clickable. Paste the bio link shown in Settings into each profile's bio once.
 
@@ -51,14 +53,26 @@ Then **Actions → agents → Run workflow → researcher** once to build the fa
 
 The agents run on **your own** Claude subscription, in your own repo, for your own products. Runs count toward your plan's usage limits. Prefer pay-per-use? Add an `ANTHROPIC_API_KEY` secret instead.
 
-## 5. Daily use, then hands-off
+## 5. Follow the journey on Home
+
+Home walks each product through five steps and only lets you act on the current one:
+
+1. **Product**: its web page (you can tick channels here already).
+2. **Research**: the AI reads the site and writes the facts and profile. Automatic.
+3. **Channels**: tick where to post. Accounts can be connected later; posts wait until you do.
+4. **Plan**: the planner drafts 4 weeks (positioning, themes, a day-by-day calendar). Edit items or ask for changes, then **Confirm and start the campaign**. Confirming is the approval: from then on each item is written, checked by the AI reviewer and published on its day.
+5. **Running**: Home shows this week's items and what each is doing now. In the last week the next plan appears for you to confirm.
+
+The agents check every 15 minutes whether a product needs research, a plan or a kickoff, so each step usually moves on within 15–30 minutes. With `GITHUB_DISPATCH_TOKEN` set, it starts immediately.
+
+## 6. Daily use, then hands-off
 
 - **Waiting for you:** approve or skip each reviewed post. That's your quality check.
 - When a channel's posts go through cleanly for a couple of weeks (you rarely skip or wish you'd changed something), switch it to **Auto** in Channels.
 - Keep new accounts at 1 post a day (Settings). Raise slowly.
 - Judge it month over month. The first real verdict comes after about 3 months.
 
-## 6. Measure sign-ups (optional, recommended)
+## 7. Measure sign-ups (optional, recommended)
 
 Tracked links land on your site with `ap_click=<id>`. Keep that value (cookie or session). When someone signs up or buys, have your **server** call:
 

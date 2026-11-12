@@ -1,18 +1,19 @@
 import { sql } from './db'
-import { nextSlot } from './slots'
+import { nextSlot, startOfDay } from './slots'
 import { createPost, getPost, uploadMedia } from './zernio'
 import { renderVideo } from './video'
 import { trackUse } from './photos'
 
-const IG_LINK_NOTE = '프로필 링크에서 확인하세요'
+// Shown where captions can't hold a clickable link. Keyed by the product's language.
+const BIO_NOTE: Record<string, string> = { ko: '프로필 링크에서 확인하세요', en: 'Link in our profile' }
 const NEEDS_RECONNECT = /token|reconnect|unauthori[sz]ed|expired|permission|auth/i
 const appUrl = () => (process.env.APP_URL ?? '').replace(/\/$/, '')
 
 // These apps don't make caption links clickable; the profile bio links to /l/<slug> instead.
 const LINK_IN_BIO = ['instagram', 'tiktok', 'youtube']
 
-function captionFor(platform: string, caption: string, code: string): string {
-  return LINK_IN_BIO.includes(platform) ? `${caption}\n\n${IG_LINK_NOTE}` : `${caption}\n\n${appUrl()}/go/${code}`
+function captionFor(platform: string, caption: string, code: string, language: string): string {
+  return LINK_IN_BIO.includes(platform) ? `${caption}\n\n${BIO_NOTE[language] ?? BIO_NOTE.ko}` : `${caption}\n\n${appUrl()}/go/${code}`
 }
 
 /** Per-platform fields Zernio needs for video posts. */
@@ -49,8 +50,9 @@ export async function renderPostVideo(postId: number, slideCount: number, revisi
 /** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
 export async function publish(postId: number, opts: { retry?: boolean; approved?: boolean } = {}): Promise<void> {
   const [row] = await sql`
-    select p.*, c.platform, c.enabled, c.automatable, c.auto_publish, c.zernio_account_id, c.started_at, pr.timezone, pr.ig_per_day, pr.threads_per_day
+    select p.*, c.platform, c.enabled, c.automatable, c.auto_publish, c.zernio_account_id, c.started_at, c.per_day, pr.timezone, pr.language, to_char(i.day, 'YYYY-MM-DD') as plan_day
     from posts p join channels c on c.id = p.channel_id join products pr on pr.id = p.product_id
+    left join plan_items i on i.id = p.plan_item_id
     where p.id = ${postId}`
   if (!row) return
   // Drafts-only channels always wait; automatable ones wait until auto-publish is on or a person approves.
@@ -63,7 +65,11 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
     await sql`update posts set status = 'failed', error = ${opts.retry ? `retried: ${msg}` : msg} where id = ${postId}`
     if (NEEDS_RECONNECT.test(msg)) await sql`update channels set needs_reconnect = true where id = ${row.channel_id}`
   }
-  if (!row.zernio_account_id) return fail('channel not connected to Zernio')
+  if (!row.zernio_account_id) {
+    // Not connected yet: the post waits and goes out once the owner connects the account (see runMaintenance).
+    await sql`update posts set status = 'waiting', error = ${`connect your ${row.platform} account to post this`} where id = ${postId}`
+    return
+  }
   if (!appUrl()) return fail('APP_URL is not set')
 
   // Slots are per Zernio account, so products sharing one account share its daily posts (the cap is this channel's per-day).
@@ -73,9 +79,11 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
       and p.id <> ${postId} and p.status in ('scheduled', 'published')
       and p.scheduled_for > now() - interval '1 day'`
   // ponytail: two publishes racing on one account could pick the same slot; agents run one at a time.
+  // Never before the plan item's day.
+  const notBefore = row.plan_day ? startOfDay(row.timezone, row.plan_day) : new Date(0)
   const when = nextSlot({
-    now: new Date(), tz: row.timezone,
-    perDay: row.platform === 'instagram' ? row.ig_per_day : row.platform === 'threads' ? row.threads_per_day : 1,
+    now: new Date(Math.max(Date.now(), notBefore.getTime())), tz: row.timezone,
+    perDay: row.per_day,
     startedAt: row.started_at, taken: taken.map(t => t.scheduled_for),
   })
   const slides: { photo_track?: string }[] = row.slides ?? []
@@ -84,7 +92,7 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
   try {
     const { zernioId } = await createPost({
       postId, accountId: row.zernio_account_id, platform: row.platform,
-      caption: captionFor(row.platform, row.caption, row.link_code),
+      caption: captionFor(row.platform, row.caption, row.link_code, row.language),
       mediaUrls: isVideo
         ? [await uploadMedia(await renderPostVideo(postId, slides.length, row.revision), `post-${postId}-r${row.revision}.mp4`, 'video/mp4')]
         : slideUrls,
@@ -104,6 +112,15 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
 /** Periodic upkeep: retry transient failures once, sync published state, expire old drafts. */
 export async function runMaintenance(): Promise<void> {
   await sql`update posts set status = 'expired' where status = 'waiting' and status_changed_at < now() - interval '7 days'`
+
+  // Plan items more than a day overdue are skipped: a late post on an old plan date helps nobody.
+  await sql`update plan_items set status = 'skipped' where status = 'planned' and day < current_date - 1`
+
+  // Posts that waited only for an account connection go out once it's connected.
+  const connected = await sql`
+    select p.id from posts p join channels c on c.id = p.channel_id
+    where p.status = 'waiting' and p.error like 'connect your % account to post this' and c.zernio_account_id is not null and c.enabled`
+  for (const c of connected) await publish(c.id, { approved: true })
 
   // Passed review but publish never ran to the end (a crash or timeout): try again.
   const stuck = await sql`select id from posts where status = 'passed' and status_changed_at < now() - interval '10 minutes'`
