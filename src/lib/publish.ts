@@ -32,14 +32,18 @@ function videoFields(platform: string, caption: string) {
   return {}
 }
 
-/** Fetch the post's rendered slides, make the mp4, and upload it to Zernio. */
-async function videoUrl(postId: number, slideUrls: string[], revision: number): Promise<string> {
-  const pngs = await Promise.all(slideUrls.map(async u => {
+const slideUrlsFor = (postId: number, count: number, revision: number) =>
+  // ?r= busts the 24h image cache when a revised post reuses the same id.
+  Array.from({ length: count }, (_, i) => `${appUrl()}/api/slide/${postId}/${i}.png?r=${revision}`)
+
+/** Fetch the post's rendered slides and make the mp4 (what gets posted, and the owner's preview). */
+export async function renderPostVideo(postId: number, slideCount: number, revision: number): Promise<Buffer> {
+  const pngs = await Promise.all(slideUrlsFor(postId, slideCount, revision).map(async u => {
     const r = await fetch(u)
     if (!r.ok) throw new Error(`slide ${u} returned ${r.status}`)
     return Buffer.from(await r.arrayBuffer())
   }))
-  return uploadMedia(await renderVideo(pngs), `post-${postId}-r${revision}.mp4`, 'video/mp4')
+  return renderVideo(pngs)
 }
 
 /** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
@@ -75,14 +79,15 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
     startedAt: row.started_at, taken: taken.map(t => t.scheduled_for),
   })
   const slides: { photo_track?: string }[] = row.slides ?? []
-  // ?r= busts the 24h image cache when a revised post reuses the same id.
-  const slideUrls = slides.map((_, i) => `${appUrl()}/api/slide/${postId}/${i}.png?r=${row.revision}`)
+  const slideUrls = slideUrlsFor(postId, slides.length, row.revision)
   const isVideo = row.kind === 'video'
   try {
     const { zernioId } = await createPost({
       postId, accountId: row.zernio_account_id, platform: row.platform,
       caption: captionFor(row.platform, row.caption, row.link_code),
-      mediaUrls: isVideo ? [await videoUrl(postId, slideUrls, row.revision)] : slideUrls,
+      mediaUrls: isVideo
+        ? [await uploadMedia(await renderPostVideo(postId, slides.length, row.revision), `post-${postId}-r${row.revision}.mp4`, 'video/mp4')]
+        : slideUrls,
       scheduledFor: when,
       // A new key per revision and for the retry: Zernio would replay a failed attempt under the same key.
       idempotencyKey: `post-${postId}-r${row.revision}${opts.retry ? '-retry' : ''}`,
