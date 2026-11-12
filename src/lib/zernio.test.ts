@@ -1,11 +1,11 @@
 import { test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { createPost, listAccounts, uploadMedia, ZernioError } from './zernio'
+import { connectUrl, createPost, ensureProfile, listAccounts, uploadMedia, ZernioError } from './zernio'
 
 const args = { postId: 42, accountId: 'acc1', platform: 'threads', caption: 'hi', mediaUrls: ['https://app.test/api/slide/42/0.png'], scheduledFor: new Date('2026-11-12T00:07:00Z') }
 beforeEach(() => { process.env.ZERNIO_API_KEY = 'sk_test' })
 afterEach(() => vi.unstubAllGlobals())
 
-const respond = (status: number, body: unknown) => { const f = vi.fn(async () => Response.json(body, { status })); vi.stubGlobal('fetch', f); return f }
+const respond = (status: number, body: unknown) => { const f = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => Response.json(body, { status })); vi.stubGlobal('fetch', f); return f }
 
 test('scheduled → returns id, sends idempotency key and body', async () => {
   const f = respond(201, { post: { _id: 'z1', status: 'scheduled' } })
@@ -74,4 +74,34 @@ test('uploadMedia: failed PUT throws', async () => {
     ? Response.json({ uploadUrl: 'https://upload.test/x', publicUrl: 'https://media.zernio.com/temp/x.mp4' })
     : new Response('denied', { status: 403 })))
   await expect(uploadMedia(Buffer.from('x'), 'a.mp4', 'video/mp4')).rejects.toThrow(/upload 403/)
+})
+
+test('ensureProfile: reuses the profile with our externalId', async () => {
+  const f = respond(200, { profiles: [{ _id: 'pf1', externalId: 'stay2u' }] })
+  expect(await ensureProfile('stay2u', 'Stay2U')).toBe('pf1')
+  expect(f.mock.calls[0][0]).toBe('https://zernio.com/api/v1/profiles?externalId=stay2u')
+  expect(f).toHaveBeenCalledTimes(1)
+})
+
+test('ensureProfile: creates one when missing', async () => {
+  const f = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (...[, init]) => init?.method === 'POST'
+    ? Response.json({ profile: { _id: 'pf2' } }, { status: 201 }) : Response.json({ profiles: [] }))
+  vi.stubGlobal('fetch', f)
+  expect(await ensureProfile('stay2u', 'Stay2U')).toBe('pf2')
+  expect(JSON.parse(String((f.mock.calls[1] as unknown as [string, RequestInit])[1].body))).toEqual({ name: 'Stay2U', externalId: 'stay2u' })
+})
+
+test('connectUrl: asks Zernio for the login link with our return address', async () => {
+  const f = respond(200, { authUrl: 'https://www.tiktok.com/auth?x=1', state: 's' })
+  expect(await connectUrl('tiktok', 'pf1', 'https://app.test/connect/tiktok/done?product=1')).toBe('https://www.tiktok.com/auth?x=1')
+  const u = new URL(String(f.mock.calls[0][0]))
+  expect(u.pathname).toBe('/api/v1/connect/tiktok')
+  expect(u.searchParams.get('profileId')).toBe('pf1')
+  expect(u.searchParams.get('redirect_url')).toBe('https://app.test/connect/tiktok/done?product=1')
+})
+
+test('listAccounts can filter by profile', async () => {
+  const f = respond(200, { accounts: [] })
+  await listAccounts('pf1')
+  expect(f.mock.calls[0][0]).toBe('https://zernio.com/api/v1/accounts?profileId=pf1')
 })

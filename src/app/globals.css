@@ -32,6 +32,8 @@ label { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
 input, textarea, select, button { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 button { cursor: pointer; background: var(--accent); color: #fff; border-color: var(--accent); }
 button.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+a.button { display: inline-block; margin-top: 6px; text-decoration: none; border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; background: var(--accent); color: #fff; }
+a.button.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .thumbs { display: flex; gap: 4px; }
 .thumbs img { width: 48px; height: 60px; object-fit: cover; border-radius: 4px; }

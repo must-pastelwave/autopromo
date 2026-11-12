@@ -47,3 +47,5 @@ create or replace trigger posts_status_changed before update on posts for each r
 -- Failed dashboard logins, for a simple global rate limit. Only timestamps.
 create table if not exists login_failures (at timestamptz not null default now());
 create index if not exists login_failures_at on login_failures(at);
+-- One Zernio profile per product, created when the owner first connects an account from the Channels page.
+alter table products add column if not exists zernio_profile_id text;

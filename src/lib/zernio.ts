@@ -35,7 +35,7 @@ export async function createPost(p: {
     body: JSON.stringify({
       content: p.caption,
       ...(p.mediaUrls.length ? { mediaItems: p.mediaUrls.map(url => (p.mediaType ? { type: p.mediaType, url } : { url })) } : {}),
-      platforms: [{ platform: p.platform, accountId: p.accountId, ...(p.platformSpecificData ? { platformSpecificData: p.platformSpecificData } : {}) }],
+      platforms: [{ platform: zernioPlatform(p.platform), accountId: p.accountId, ...(p.platformSpecificData ? { platformSpecificData: p.platformSpecificData } : {}) }],
       scheduledFor: p.scheduledFor.toISOString(),
       ...p.extra,
     }),
@@ -67,7 +67,32 @@ export async function cancelPost(zernioId: string): Promise<void> {
   await call(`/posts/${encodeURIComponent(zernioId)}`, { method: 'DELETE' })
 }
 
-export async function listAccounts(): Promise<{ _id: string; platform: string; username?: string }[]> {
-  const { body } = await call('/accounts')
+export async function listAccounts(profileId?: string): Promise<{ _id: string; platform: string; username?: string }[]> {
+  const { body } = await call(profileId ? `/accounts?profileId=${encodeURIComponent(profileId)}` : '/accounts')
   return body?.accounts ?? []
+}
+
+/** Our channel names → Zernio's platform names. */
+export const zernioPlatform = (platform: string) => (platform === 'x' ? 'twitter' : platform)
+
+/** Platforms the owner can connect from our Channels page (Zernio's OAuth flow). */
+export const CONNECTABLE = ['tiktok', 'youtube', 'instagram', 'threads', 'facebook', 'linkedin', 'x', 'pinterest']
+
+/** The Zernio profile for one product (one profile per product keeps each business's accounts apart). */
+export async function ensureProfile(externalId: string, name: string): Promise<string> {
+  const { body } = await call(`/profiles?externalId=${encodeURIComponent(externalId)}`)
+  const found = body?.profiles?.[0]?._id
+  if (found) return found
+  const created = await call('/profiles', { method: 'POST', body: JSON.stringify({ name, externalId }) })
+  const id = created.body?.profile?._id ?? created.body?._id
+  if (!id) throw new ZernioError(created.status, 'no profile id in response')
+  return id
+}
+
+/** Zernio's login link for a platform; after login Zernio sends the browser to redirectUrl (with ?error= on failure). */
+export async function connectUrl(platform: string, profileId: string, redirectUrl: string): Promise<string> {
+  const q = new URLSearchParams({ profileId, redirect_url: redirectUrl })
+  const { body } = await call(`/connect/${encodeURIComponent(zernioPlatform(platform))}?${q}`)
+  if (!body?.authUrl) throw new ZernioError(0, 'no login link in response')
+  return body.authUrl
 }
