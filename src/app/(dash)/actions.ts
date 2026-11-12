@@ -23,9 +23,9 @@ export async function saveProduct(f: FormData) {
   await requireOwner()
   const id = Number(s(f, 'id')) || null
   const url = s(f, 'url'), name = s(f, 'name'), audience = s(f, 'audience')
-  if (!/^https?:\/\/\S+$/.test(url)) back('Enter the product page URL (https://…)')
+  if (!/^https?:\/\/\S+$/.test(url)) back('Enter the product page URL (https://…)', id ? 'settings' : 'products/new')
   const tz = s(f, 'timezone') || 'Asia/Seoul'
-  try { new Intl.DateTimeFormat('en', { timeZone: tz }) } catch { back(`Unknown timezone: ${tz}`) }
+  try { new Intl.DateTimeFormat('en', { timeZone: tz }) } catch { back(`Unknown timezone: ${tz}`, id ? 'settings' : 'products/new') }
   // Blank fields are filled by the researcher on its next run; a blank name starts as the site's host.
   const fields = {
     url, name: name || new URL(url).hostname.replace(/^www\./, ''), audience, language: s(f, 'language'), timezone: tz,
@@ -34,7 +34,7 @@ export async function saveProduct(f: FormData) {
   if (id) {
     await sql`update products set ${sql(fields)} where id = ${id}`
   } else {
-    const slug = (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'product') + '-' + Date.now().toString(36).slice(-4)
+    const slug = (fields.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'product') + '-' + Date.now().toString(36).slice(-4)
     const [p] = await sql`insert into products ${sql({ ...fields, slug })} returning id, slug`
     const rows = [...AUTOMATABLE.map(platform => ({ platform, automatable: true })), ...DRAFTS_ONLY.map(platform => ({ platform, automatable: false }))]
       .map(r => ({ ...r, product_id: p.id }))
@@ -42,7 +42,7 @@ export async function saveProduct(f: FormData) {
     ;(await cookies()).set(PRODUCT_COOKIE, p.slug, { path: '/', sameSite: 'lax', maxAge: 60 * 60 * 24 * 365 })
   }
   revalidatePath('/', 'layout')
-  back('Saved')
+  back(id ? 'Saved' : 'Product added. The researcher reads the site at 05:00 KST tomorrow and fills in anything you left blank; posts start the day after.')
 }
 
 export async function saveFacts(f: FormData) {

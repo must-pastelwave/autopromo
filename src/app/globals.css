@@ -15,6 +15,7 @@ a { color: var(--accent); text-underline-offset: 2px; }
 .sidebar .title { font-family: var(--serif); font-size: 24px; margin-bottom: 18px; }
 .sidebar .switch { display: grid; gap: 4px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .sidebar .switch select { flex: 1; min-width: 0; }
+.add-product { display: block; margin: -6px 0 16px; font-size: 14px; }
 .side-nav { display: grid; gap: 2px; }
 .side-nav a { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; color: var(--fg); text-decoration: none; border-left: 3px solid transparent; }
 .side-nav a:hover { background: var(--soft); }

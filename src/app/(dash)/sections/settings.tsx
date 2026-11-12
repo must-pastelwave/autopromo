@@ -1,6 +1,6 @@
 import { saveFacts, savePlaybook, saveProduct } from '../actions'
 
-function ProductForm({ p }: { p?: Record<string, any> }) {
+export function ProductForm({ p }: { p?: Record<string, any> }) {
   return (
     <form action={saveProduct} className="stack">
       {p && <input type="hidden" name="id" value={p.id} />}
@@ -45,8 +45,7 @@ export async function SettingsSection({ p }: { p: Record<string, any> | null }) 
           </form>
         </>
       )}
-      <h3>Add a product</h3>
-      <ProductForm />
+      {!p && <ProductForm />}
     </>
   )
 }

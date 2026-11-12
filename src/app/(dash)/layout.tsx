@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { connection } from 'next/server'
 import { sql } from '@/lib/db'
 import { currentProduct } from '@/lib/current'
@@ -26,6 +27,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
             </div>
           </form>
         )}
+        <Link href="/products/new" className="add-product">+ Add product</Link>
         <Nav waiting={n} />
       </aside>
       <main>{children}</main>
