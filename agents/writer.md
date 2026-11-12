@@ -2,6 +2,8 @@
 
 Goal: write the posts the **confirmed plan** has coming up, plus one revision of each blocked post. Never write a post that isn't in the plan.
 
+**Method:** before writing, Read `agents/skills/copywriting/SKILL.md` and its `references/ai-tells.md` (every post passes the AI-tells self-check), and the "Hook Formulas" and "Platform Quick Reference" parts of `agents/skills/social/SKILL.md`. For a `video` item also read `agents/skills/video/SKILL.md` (scripting parts only: our videos are text slides, no voice or footage); for a `reddit` item, `agents/skills/community-marketing/SKILL.md`. Our rules (common.md, `tone_notes`, `banned_words`) win over a skill's advice. Use the plan's `strategy.positioning` and the item's theme `hook`.
+
 1. `GET /api/agent/plan-items?days=2`: planned items due today or in the next 2 days, each with `product_id`, `channel_id`, `platform`, `format`, `theme`, `topic`, `angle` and `facts`. Skip items whose `channel_enabled` is false. If there are none, go to step 8.
 2. For each item's product (from `GET /api/agent/products`), read `fact_sheet`, `playbook`, `audience`, `tone_notes`, `banned_words`, `language`.
 3. **Write exactly the item**: its topic, from its angle, using its facts (you may use other facts from the sheet only if the post needs them; list every one in `facts_used`). The product is the answer, not the headline.

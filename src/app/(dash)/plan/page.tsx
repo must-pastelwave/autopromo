@@ -13,11 +13,22 @@ const list = (v: unknown): any[] => (Array.isArray(v) ? v : [])
 function Strategy({ s }: { s: Record<string, any> }) {
   return (
     <div className="card strategy">
+      {s.positioning && <div style={{ marginBottom: 10 }}>
+        <b>Positioning</b>
+        <ul>
+          {s.positioning.who && <li><b>Who</b>: {s.positioning.who}</li>}
+          {s.positioning.problem && <li><b>Problem</b>: {s.positioning.problem}</li>}
+          {s.positioning.promise && <li><b>Promise</b>: {s.positioning.promise}</li>}
+          {s.positioning.proof && <li><b>Proof</b>: {s.positioning.proof}</li>}
+          {list(s.positioning.objections).length > 0 && <li><b>Objections to answer</b>: {list(s.positioning.objections).join(' · ')}</li>}
+        </ul>
+      </div>}
+      {s.funnel_focus && <p><b>Funnel focus</b> {typeof s.funnel_focus === 'string' ? s.funnel_focus : JSON.stringify(s.funnel_focus)}</p>}
       <p><b>Goal</b> {s.goal}</p>
       <p><b>Call to action</b> {s.cta}</p>
       {s.audience && <p><b>Audience</b> {s.audience}</p>}
       {list(s.channels).length > 0 && <><b>Channels</b><ul>{list(s.channels).map((c, i) => <li key={i}><b>{c.platform}</b>{c.per_week ? ` · ${c.per_week}/week` : ''}: {c.why}</li>)}</ul></>}
-      {list(s.themes).length > 0 && <><b>Themes</b><ul>{list(s.themes).map((t, i) => <li key={i}><b>{t.name}</b>: {t.why}</li>)}</ul></>}
+      {list(s.themes).length > 0 && <><b>Themes</b><ul>{list(s.themes).map((t, i) => <li key={i}><b>{t.name}</b>: {t.why}{t.hook ? <span className="muted"> · hook: {t.hook}</span> : null}</li>)}</ul></>}
       {list(s.rules).length > 0 && <><b>Rules</b><ul>{list(s.rules).map((r, i) => <li key={i}>{String(r)}</li>)}</ul></>}
     </div>
   )
