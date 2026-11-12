@@ -116,14 +116,16 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
     <Page title="Plan" msg={msg}>
       <p className="muted">Every post comes from a confirmed plan: a 4-week calendar the planner drafts and you agree on. Edit items, ask for changes, then confirm.</p>
 
-      {!researched && (
+      {!p.active && <div className="notice">{p.name} is paused, so its agents don&apos;t run. Switch to another product in the sidebar.</div>}
+
+      {p.active && !researched && (
         <div className="card">
           <p>The researcher hasn&apos;t read {p.url} yet, so there are no facts to plan from.</p>
           <form action={startPlanning}><input type="hidden" name="product" value={p.id} /><button type="submit">Research the site now</button></form>
         </div>
       )}
 
-      {researched && !draft && !current && (
+      {p.active && researched && !draft && !current && (
         <div className="card">
           <p>No plan yet.</p>
           <form action={startPlanning}><input type="hidden" name="product" value={p.id} /><button type="submit">Draft a plan now</button></form>

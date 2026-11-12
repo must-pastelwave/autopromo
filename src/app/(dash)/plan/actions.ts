@@ -13,8 +13,9 @@ const LATER = 'It will run at the next scheduled time (05:00–05:30 KST); add G
 /** Research the site (no facts yet) or draft a plan, now. */
 export async function startPlanning(f: FormData) {
   await requireOwner()
-  const [p] = await sql`select jsonb_array_length(fact_sheet) as n from products where id = ${Number(s(f, 'product'))}`
+  const [p] = await sql`select active, jsonb_array_length(fact_sheet) as n from products where id = ${Number(s(f, 'product'))}`
   if (!p) back('Unknown product')
+  if (!p.active) back('This product is paused, so its agents don\'t run.')
   const agent = p.n > 0 ? 'planner' : 'researcher'
   const started = await dispatchAgent(agent)
   back(started ? `The ${agent} has started; refresh in a few minutes.` : `Queued for the ${agent}. ${LATER}`)
