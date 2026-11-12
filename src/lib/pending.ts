@@ -36,8 +36,11 @@ export async function workToDo(): Promise<{ research: number[]; plan: number[]; 
         join channels c on c.product_id = pl.product_id and c.platform = i.platform and c.enabled
         where pl.status = 'confirmed' and pr.active and i.status = 'planned' and i.day between current_date - 1 and current_date + 2)
        or exists (select 1 from posts x join products pr on pr.id = x.product_id where pr.active and x.status = 'blocked' and x.revision = 0))
-      and not exists (select 1 from agent_runs where jobs like '%writer%' and coalesce(started_at, requested_at) > now() - interval '3 hours'
-        and status in ('running', 'done', 'failed')) as write,
+      and (not exists (select 1 from agent_runs where jobs like '%writer%' and coalesce(started_at, requested_at) > now() - interval '3 hours'
+             and status in ('running', 'done', 'failed'))
+           -- the owner asked to retry an item after the last writer run: write it now
+           or exists (select 1 from plan_items i where i.status = 'planned' and i.retry_at >
+             coalesce((select max(started_at) from agent_runs where jobs like '%writer%' and status in ('running', 'done', 'failed')), '-infinity'))) as write,
       exists (select 1 from posts x join products pr on pr.id = x.product_id where pr.active and x.status = 'draft')
       and not exists (select 1 from agent_runs where jobs like '%reviewer%' and coalesce(started_at, requested_at) > now() - interval '1 hour'
         and status in ('running', 'done', 'failed')) as review`
