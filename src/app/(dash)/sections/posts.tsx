@@ -7,9 +7,10 @@ export async function PostsSection({ p, status: asked }: { p: Record<string, any
   const status = STATUSES.includes(asked ?? '') ? asked! : 'all'
   const posts = await sql`
     select x.*, c.platform, (select count(*)::int from clicks k where k.post_id = x.id) as clicks,
+      coalesce(greatest(m.impressions, m.views, m.reach), 0) as seen, coalesce(m.likes + m.comments + m.shares + m.saves, 0) as engaged, m.post_url,
       (select count(*)::int from conversions v where v.post_id = x.id and v.kind = 'signup') as signups,
       (select count(*)::int from conversions v where v.post_id = x.id and v.kind = 'purchase') as purchases
-    from posts x join channels c on c.id = x.channel_id
+    from posts x join channels c on c.id = x.channel_id left join post_metrics m on m.post_id = x.id
     where x.product_id = ${p.id} and (${status} = 'all' or x.status = ${status})
     order by x.id desc limit 200`
   return (
@@ -18,7 +19,7 @@ export async function PostsSection({ p, status: asked }: { p: Record<string, any
         {STATUSES.map(s => <Link key={s} href={s === 'all' ? '/posts' : `/posts?status=${s}`} className="badge" aria-current={s === status ? 'page' : undefined}>{s}</Link>)}
       </div>
       <div className="scroll"><table>
-        <thead><tr><th>Channel</th><th>Post</th><th>Status</th><th>Sign-ups</th><th>Purchases</th><th>Clicks</th><th>When</th></tr></thead>
+        <thead><tr><th>Channel</th><th>Post</th><th>Status</th><th>Seen</th><th>Engaged</th><th>Clicks</th><th>Sign-ups</th><th>When</th></tr></thead>
         <tbody>
           {posts.map(x => (
             <tr key={x.id}>
@@ -38,9 +39,10 @@ export async function PostsSection({ p, status: asked }: { p: Record<string, any
                 {x.review_reason && <div className="muted">{x.review_reason}</div>}
                 {x.error && <div className="muted">{x.error}</div>}
               </td>
-              <td>{x.signups}</td>
-              <td>{x.purchases}</td>
+              <td>{x.seen}{x.post_url && <div><a className="muted" href={x.post_url} target="_blank" rel="noreferrer">view</a></div>}</td>
+              <td>{x.engaged}</td>
               <td>{x.clicks}</td>
+              <td>{x.signups}</td>
               <td className="muted">{x.scheduled_for ? new Date(x.scheduled_for).toLocaleString('ko-KR', { timeZone: p.timezone }) : '—'}</td>
             </tr>
           ))}

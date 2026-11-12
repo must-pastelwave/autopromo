@@ -82,3 +82,14 @@ create table if not exists agent_runs (
   status text not null check (status in ('queued','running','done','failed')),
   url text, requested_at timestamptz not null default now(), started_at timestamptz, finished_at timestamptz);
 create index if not exists agent_runs_products on agent_runs using gin (product_ids);
+-- Independent campaign tracking: platform metrics per post and followers per account, synced from Zernio.
+create table if not exists post_metrics (
+  post_id int primary key references posts on delete cascade,
+  impressions int not null default 0, reach int not null default 0, views int not null default 0,
+  likes int not null default 0, comments int not null default 0, shares int not null default 0, saves int not null default 0,
+  platform_clicks int not null default 0, engagement_rate numeric not null default 0, post_url text,
+  updated_at timestamptz not null default now());
+create table if not exists follower_counts (
+  channel_id int not null references channels on delete cascade, day date not null, followers int not null,
+  primary key (channel_id, day));
+create table if not exists sync_state (key text primary key, at timestamptz not null, note text not null default '');

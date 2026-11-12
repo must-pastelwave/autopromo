@@ -103,6 +103,12 @@ details > summary { cursor: pointer; color: var(--fg); font-size: 14px; font-wei
 .side-nav .locked { display: flex; justify-content: space-between; align-items: center; height: 34px; padding: 0 8px; color: var(--faint); cursor: not-allowed; font-weight: 500; }
 .side-nav .lock { font-size: 11px; opacity: .6; }
 
+/* Scorecard */
+.big .of { font-size: 15px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.bar { position: relative; height: 4px; background: var(--hover); border-radius: 9999px; margin-top: 10px; }
+.bar span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--fg); border-radius: 9999px; }
+.bar i { position: absolute; top: -3px; width: 2px; height: 10px; background: var(--accent); }
+
 /* Agent run status */
 .run { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 10px 14px; margin: 0 0 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; background: var(--bg); }
 .run-running, .run-queued { border-color: #b8d4ff; background: #f5f9ff; }
