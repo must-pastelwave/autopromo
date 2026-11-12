@@ -59,4 +59,4 @@ jobs:
           claude_args: |
             --model ${{ vars.AGENT_MODEL || 'claude-opus-5-5' }}
             --max-turns ${{ steps.pick.outputs.turns }}
-            --allowedTools "Read,Write,Edit,WebFetch,Bash(curl:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,WebFetch,Bash(curl:*)"
