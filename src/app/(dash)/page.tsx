@@ -1,4 +1,7 @@
-import Link from 'next/link'
+import { WaitingSection } from './sections/waiting'
+import { ChannelsSection } from './sections/channels'
+import { PostsSection } from './sections/posts'
+import { SettingsSection } from './sections/settings'
 import { sql } from '@/lib/db'
 import { currentProduct } from '@/lib/current'
 
@@ -14,7 +17,7 @@ function Chart({ days }: { days: Day[] }) {
   }
   const total = (key: 'clicks' | 'signups') => days.reduce((a, d) => a + d[key], 0)
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} role="img"
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none" role="img"
       aria-label={`Last ${days.length} days: ${total('clicks')} clicks, ${total('signups')} sign-ups. Each line is scaled to its own maximum.`}>
       <polyline points={line('clicks')} fill="none" stroke="var(--muted)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
       <polyline points={line('signups')} fill="none" stroke="var(--accent)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
@@ -22,9 +25,12 @@ function Chart({ days }: { days: Day[] }) {
   )
 }
 
-export default async function Overview() {
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ msg?: string; status?: string; open?: string }> }) {
+  const { msg, status, open } = await searchParams
   const p = await currentProduct()
-  if (!p) return <p>No product yet. <Link href="/settings">Add one in Settings</Link>.</p>
+  const notice = msg && <div className="notice" role="status">{msg}</div>
+  if (!p) return <>{notice}<h2>Add your first product</h2><SettingsSection p={null} /></>
+
   const windows = await sql`
     select w.label,
       (select count(*)::int from clicks k join posts x on x.id = k.post_id where x.product_id = ${p.id} and k.at > now() - w.span) as clicks,
@@ -56,25 +62,20 @@ export default async function Overview() {
   const next = await sql`
     select x.id, x.topic, c.platform, x.scheduled_for from posts x join channels c on c.id = x.channel_id
     where x.product_id = ${p.id} and x.status = 'scheduled' and x.scheduled_for > now() order by x.scheduled_for limit 5`
-  const channels = await sql`select platform, enabled, automatable, auto_publish, needs_reconnect from channels where product_id = ${p.id} and enabled order by id`
+  const week = windows[0]
 
   return (
     <>
-      <div className="scroll"><table>
-        <thead><tr><th></th><th>Sign-ups</th><th>Purchases</th><th>Clicks</th></tr></thead>
-        <tbody>
-          {windows.map(w => (
-            <tr key={w.label}><td>{w.label}</td><td className="big" style={{ fontSize: 22 }}>{w.signups}</td><td>{w.purchases}</td><td>{w.clicks}</td></tr>
-          ))}
-        </tbody>
-      </table></div>
-      <p className="muted">Weekly numbers are signals for tuning. Judge month over month; the first real verdict is after about 3 months.</p>
-      <div className="grid" style={{ marginTop: 12 }}>
-        <div className="card"><div className="big">{counts.waiting}</div><div className="muted"><Link href="/waiting">waiting for you</Link></div></div>
-        <div className="card"><div className="big">{counts.live}</div><div className="muted">posts out or scheduled, 28 days</div></div>
-        <div className="card"><div className="big">{counts.blocked}</div><div className="muted">blocked by reviewer, 28 days</div></div>
+      {notice}
+      <div className="stats">
+        <div className="stat"><div className="big">{week.signups}</div><div className="muted">sign-ups, 7 days</div></div>
+        <div className="stat"><div className="big">{week.clicks}</div><div className="muted">clicks, 7 days</div></div>
+        <div className="stat"><div className="big">{counts.live}</div><div className="muted">posts live, 28 days</div></div>
+        <div className="stat"><div className="big">{counts.blocked}</div><div className="muted">blocked by reviewer</div></div>
+        <a className="stat" href="#waiting"><div className="big">{counts.waiting}</div><div className="muted">waiting for you</div></a>
       </div>
-      <h2>Sign-ups and clicks per day (90 days)</h2>
+
+      <h2>Sign-ups and clicks per day</h2>
       <div className="card">
         <Chart days={days} />
         <div className="row muted" style={{ justifyContent: 'space-between' }}>
@@ -82,29 +83,48 @@ export default async function Overview() {
           <span><span style={{ color: 'var(--accent)' }}>━</span> sign-ups &nbsp; <span>━</span> clicks</span>
           <span>{days.at(-1)?.day}</span>
         </div>
+        <table className="compact" style={{ marginTop: 12 }}>
+          <thead><tr><th></th><th>Sign-ups</th><th>Purchases</th><th>Clicks</th></tr></thead>
+          <tbody>{windows.map(w => <tr key={w.label}><td>{w.label}</td><td><strong>{w.signups}</strong></td><td>{w.purchases}</td><td>{w.clicks}</td></tr>)}</tbody>
+        </table>
+        <p className="muted">Weekly numbers are signals for tuning. Judge month over month; the first real verdict comes after about 3 months.</p>
       </div>
-      <h2>Top posts (90 days)</h2>
-      <div className="scroll"><table>
-        <thead><tr><th>Channel</th><th>Topic</th><th>Sign-ups</th><th>Clicks</th></tr></thead>
-        <tbody>
-          {top.map(t => <tr key={t.id}><td>{t.platform}</td><td>{t.topic}</td><td>{t.signups}</td><td>{t.clicks}</td></tr>)}
-          {top.length === 0 && <tr><td colSpan={4} className="muted">Nothing posted yet.</td></tr>}
-        </tbody>
-      </table></div>
-      <h2>Coming up next</h2>
-      <div className="scroll"><table><tbody>
-        {next.map(n => <tr key={n.id}><td>{fmt(n.scheduled_for, p.timezone)}</td><td>{n.platform}</td><td>{n.topic}</td></tr>)}
-        {next.length === 0 && <tr><td className="muted">Nothing scheduled.</td></tr>}
-      </tbody></table></div>
-      <h2>Channels</h2>
-      <div className="row">
-        {channels.map(c => (
-          <span key={c.platform} className="badge">
-            {c.platform} · {c.needs_reconnect ? 'reconnect in Zernio' : !c.automatable ? 'drafts only' : c.auto_publish ? 'auto' : 'approve first'}
-          </span>
-        ))}
-        {channels.length === 0 && <span className="muted">No channels on. <Link href="/channels">Turn some on</Link>.</span>}
+
+      <h2 id="waiting">Waiting for you{counts.waiting > 0 ? ` (${counts.waiting})` : ''}</h2>
+      <WaitingSection p={p} />
+
+      <div className="two">
+        <section>
+          <h2>Top posts</h2>
+          <table>
+            <thead><tr><th>Channel</th><th>Topic</th><th>Sign-ups</th><th>Clicks</th></tr></thead>
+            <tbody>
+              {top.map(t => <tr key={t.id}><td>{t.platform}</td><td>{t.topic}</td><td>{t.signups}</td><td>{t.clicks}</td></tr>)}
+              {top.length === 0 && <tr><td colSpan={4} className="muted">Nothing posted yet.</td></tr>}
+            </tbody>
+          </table>
+        </section>
+        <section>
+          <h2>Coming up next</h2>
+          <table><tbody>
+            {next.map(n => <tr key={n.id}><td>{fmt(n.scheduled_for, p.timezone)}</td><td>{n.platform}</td><td>{n.topic}</td></tr>)}
+            {next.length === 0 && <tr><td className="muted">Nothing scheduled.</td></tr>}
+          </tbody></table>
+        </section>
       </div>
+
+      <h2 id="channels">Channels</h2>
+      <ChannelsSection p={p} />
+
+      <details id="posts" open={!!status || open === 'posts'}>
+        <summary><h2>All posts</h2></summary>
+        <PostsSection p={p} status={status} />
+      </details>
+
+      <details id="settings" open={open === 'settings'}>
+        <summary><h2>Settings</h2></summary>
+        <SettingsSection p={p} />
+      </details>
     </>
   )
 }

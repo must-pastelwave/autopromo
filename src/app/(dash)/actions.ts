@@ -11,7 +11,7 @@ const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
-const back = (path: string, msg: string): never => redirect(`${path}?msg=${encodeURIComponent(msg)}`)
+const back = (msg: string, section = 'settings'): never => redirect(`/?msg=${encodeURIComponent(msg)}&open=${section}#${section}`)
 
 export async function selectProduct(f: FormData) {
   await requireOwner()
@@ -23,9 +23,9 @@ export async function saveProduct(f: FormData) {
   await requireOwner()
   const id = Number(s(f, 'id')) || null
   const url = s(f, 'url'), name = s(f, 'name'), audience = s(f, 'audience')
-  if (!/^https?:\/\/\S+$/.test(url) || !name || !audience) back('/settings', 'URL, name and target users are required')
+  if (!/^https?:\/\/\S+$/.test(url) || !name || !audience) back('URL, name and target users are required')
   const tz = s(f, 'timezone') || 'Asia/Seoul'
-  try { new Intl.DateTimeFormat('en', { timeZone: tz }) } catch { back('/settings', `Unknown timezone: ${tz}`) }
+  try { new Intl.DateTimeFormat('en', { timeZone: tz }) } catch { back(`Unknown timezone: ${tz}`) }
   const perDay = (k: string) => Math.min(Math.max(parseInt(s(f, k), 10) || 1, 1), 10)
   const fields = {
     url, name, audience, language: s(f, 'language') || 'ko', timezone: tz, tone_notes: s(f, 'tone_notes'),
@@ -43,34 +43,34 @@ export async function saveProduct(f: FormData) {
     ;(await cookies()).set(PRODUCT_COOKIE, p.slug, { path: '/', sameSite: 'lax', maxAge: 60 * 60 * 24 * 365 })
   }
   revalidatePath('/', 'layout')
-  back('/settings', 'Saved')
+  back('Saved')
 }
 
 export async function saveFacts(f: FormData) {
   await requireOwner()
   const facts = parseFactLines(String(f.get('facts') ?? ''))
-  if (typeof facts === 'string') back('/settings', facts)
+  if (typeof facts === 'string') back(facts)
   const r = await replaceFacts(Number(s(f, 'id')), facts as Exclude<typeof facts, string>)
-  back('/settings', r ? `Fact sheet saved${r.dropped_scheduled ? `; ${r.dropped_scheduled} scheduled post(s) cancelled` : ''}` : 'Product not found')
+  back(r ? `Fact sheet saved${r.dropped_scheduled ? `; ${r.dropped_scheduled} scheduled post(s) cancelled` : ''}` : 'Product not found')
 }
 
 export async function savePlaybook(f: FormData) {
   await requireOwner()
   await sql`update products set playbook = ${String(f.get('playbook') ?? '').slice(0, 5000)} where id = ${Number(s(f, 'id'))}`
-  back('/settings', 'Playbook saved')
+  back('Playbook saved')
 }
 
 export async function toggleChannel(f: FormData) {
   await requireOwner()
   const id = Number(s(f, 'id')), on = s(f, 'enabled') === 'true'
   await sql`update channels set enabled = ${on}, started_at = case when ${on} then coalesce(started_at, now()) else started_at end where id = ${id}`
-  revalidatePath('/channels')
+  revalidatePath('/')
 }
 
 export async function toggleAutoPublish(f: FormData) {
   await requireOwner()
   await sql`update channels set auto_publish = ${s(f, 'auto') === 'true'} where id = ${Number(s(f, 'id'))} and automatable`
-  revalidatePath('/channels')
+  revalidatePath('/')
 }
 
 /** A person approved a reviewed post on an approve-first channel: schedule it in Zernio. */
@@ -85,7 +85,7 @@ export async function approveWaiting(f: FormData) {
 export async function setChannelAccount(f: FormData) {
   await requireOwner()
   await sql`update channels set zernio_account_id = ${s(f, 'account') || null}, needs_reconnect = false where id = ${Number(s(f, 'id'))}`
-  revalidatePath('/channels')
+  revalidatePath('/')
 }
 
 export async function resolveWaiting(f: FormData) {
