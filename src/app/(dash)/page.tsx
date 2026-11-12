@@ -5,6 +5,7 @@ import { currentProduct } from '@/lib/current'
 import { journeyFor } from '@/lib/journey'
 import { Stepper } from './journey/stepper'
 import { RunStatus } from './journey/run-status'
+import { Scorecard } from './journey/scorecard'
 import { chooseChannels } from './journey/actions'
 import { startPlanning } from './plan/actions'
 import { ProductForm } from './sections/settings'
@@ -145,7 +146,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         where x.product_id = ${p.id} and v.kind = 'signup' and (v.at at time zone ${p.timezone})::date = d) as signups
     from generate_series((now() at time zone ${p.timezone})::date - 89, (now() at time zone ${p.timezone})::date, '1 day') d
     order by d`
-  const week = windows[0]
 
   return (
     <Page title={p.name} msg={msg}>
@@ -155,15 +155,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
       {j.draft?.status === 'draft' && <div className="notice"><b>Your next plan is ready</b> (from {j.draft.starts}). <Link href="/plan">Review and confirm it</Link> so the campaign continues.</div>}
       {j.unconnected.length > 0 && <div className="notice"><b>Connect {j.unconnected.join(', ')}</b> so those posts can go out; they wait until then. <Link href="/channels">Connect in Channels</Link>.</div>}
 
-      <div className="stats">
-        <div className="stat"><div className="big">{week.signups}</div><div className="muted">sign-ups, 7 days</div></div>
-        <div className="stat"><div className="big">{week.clicks}</div><div className="muted">clicks, 7 days</div></div>
-        <div className="stat"><div className="big">{counts.live}</div><div className="muted">posts out, 28 days</div></div>
-        <div className="stat"><div className="big">{progress.written}/{progress.total}</div><div className="muted">plan items written</div></div>
-        <Link className="stat" href="/waiting"><div className="big">{counts.waiting}</div><div className="muted">waiting</div></Link>
-      </div>
+      <Scorecard planId={j.running!.id} />
 
-      <h2>This week in the plan <span className="muted" style={{ fontWeight: 400 }}>· {j.running!.starts} → {j.running!.ends} · <Link href="/plan">whole plan</Link></span></h2>
+      <h2>This week in the plan <span className="muted" style={{ fontWeight: 400 }}>· {j.running!.starts} → {j.running!.ends} · {progress.written}/{progress.total} items written · {counts.waiting} waiting · <Link href="/plan">whole plan</Link></span></h2>
       <div className="scroll"><table>
         <thead><tr><th>Day</th><th>Channel</th><th>Topic</th><th>Now</th></tr></thead>
         <tbody>
@@ -174,7 +168,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         </tbody>
       </table></div>
 
-      <h2>Sign-ups and clicks per day</h2>
+      <h2>Clicks and sign-ups per day</h2>
       <div className="card">
         <Chart days={days} />
         <div className="row muted" style={{ justifyContent: 'space-between' }}>

@@ -22,11 +22,12 @@ For each of those products:
 1. Read the product: `fact_sheet`, `audience`, `language`, `tone_notes`, `banned_words`, `playbook`, `channels` (all of them, with `enabled`), and `GET /api/agent/stats?product_id=<id>&days=90`.
 2. `GET /api/agent/plans?product_id=<id>`:
    - `draft` with `status: "revising"`: the owner wrote `feedback`. **Rewrite the plan to do what the feedback says**, keeping the rest of the draft that the feedback didn't touch. The feedback beats your own preferences; the rules in common.md and the product's `tone_notes` still beat the feedback.
-   - `current`: the running confirmed plan. Your new plan starts the day after it ends; continue its themes, keep what the stats say works, change what doesn't.
+   - `current`: the running confirmed plan. Read its results with `GET /api/agent/scorecard?plan_id=<id>`. Your new plan starts the day after it ends; continue its themes, keep what the stats say works, change what doesn't.
    - neither: a first plan. It starts today.
 3. Decide the strategy:
    - `positioning`: `{who, problem, promise, proof, objections: [...]}` from the product-marketing method, using only fact-sheet claims.
    - `funnel_focus`: the AARRR stage this plan pushes (for a new product, usually acquisition/activation) and why.
+   - `targets`: what success looks like by the end of these 4 weeks, as numbers autopromo measures itself: `{seen, engaged, clicks, followers}` (seen = impressions or views; engaged = likes + comments + shares + saves; clicks = clicks on our tracked links; followers = followers gained on the plan's channels). For a first plan on new accounts, set modest baseline targets and say so; for a next plan, start from `GET /api/agent/scorecard?plan_id=<current plan id>` and raise what worked.
    - `goal`: the one outcome this plan works toward (the call to action the site itself asks for).
    - `cta`: the one call to action every post points to.
    - `audience`: who, concretely.

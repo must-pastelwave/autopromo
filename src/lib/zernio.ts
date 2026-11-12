@@ -96,3 +96,19 @@ export async function connectUrl(platform: string, profileId: string, redirectUr
   if (!body?.authUrl) throw new ZernioError(0, 'no login link in response')
   return body.authUrl
 }
+
+export type ZernioPostMetrics = { _id: string; platformPostUrl?: string; analytics?: Record<string, number> }
+
+/** One page of post analytics (posts made through Zernio), newest first. */
+export async function getAnalytics(q: { fromDate: string; page: number; limit: number }): Promise<{ posts: ZernioPostMetrics[]; total: number }> {
+  const qs = new URLSearchParams({ source: 'late', fromDate: q.fromDate, page: String(q.page), limit: String(q.limit) })
+  const { body } = await call(`/analytics?${qs}`)
+  return { posts: body?.posts ?? [], total: body?.pagination?.total ?? 0 }
+}
+
+/** Daily follower counts per account (up to 25 accounts a call). */
+export async function getFollowerStats(accountIds: string[], fromDate: string): Promise<Record<string, { date: string; followers: number }[]>> {
+  const qs = new URLSearchParams({ accountIds: accountIds.join(','), fromDate, granularity: 'daily' })
+  const { body } = await call(`/accounts/follower-stats?${qs}`)
+  return body?.stats ?? {}
+}

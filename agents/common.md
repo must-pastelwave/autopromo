@@ -28,6 +28,7 @@ Shell `$VARIABLES`, pipes and other commands are blocked; only plain `curl` comm
 | `GET /api/agent/plans?product_id=<id>` | the running confirmed plan and the open draft (with the owner's feedback) |
 | `PUT /api/agent/products/<id>/plan` `{strategy, items}` | the planner's draft plan (replaces the open draft) |
 | `GET /api/agent/plan-items?days=2` | confirmed-plan items the writer should write now |
+| `GET /api/agent/scorecard?plan_id=<id>` | the plan's results so far vs its targets, by theme and channel |
 | `PUT /api/agent/products/<id>/profile` | the researcher's guess at name, audience, language, tone, banned words |
 | `GET /api/agent/photos?q=<english query>&n=5` | licensed stock photos `{url, credit, track}` |
 | `POST /api/agent/maintenance` | call once at the very end of every run |
