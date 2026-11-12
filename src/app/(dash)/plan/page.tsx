@@ -3,7 +3,7 @@ import { sql } from '@/lib/db'
 import { currentProduct } from '@/lib/current'
 import { planWithItems } from '@/lib/plans'
 import { Page } from '../sections/frame'
-import { addItem, confirmPlan, removeItem, revisePlan, saveItem, startPlanning } from './actions'
+import { addItem, confirm, removeItem, revisePlan, saveItem, startPlanning } from './actions'
 
 type Plan = NonNullable<Awaited<ReturnType<typeof planWithItems>>>
 
@@ -146,7 +146,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                 <textarea name="feedback" rows={3} placeholder="e.g. No safety notices in week 1; more LinkedIn, less X; start with what the product is" aria-label="Feedback for the planner" />
                 <div className="row"><button className="ghost" type="submit">Ask the planner to revise</button></div>
               </form>
-              <form action={confirmPlan} style={{ marginTop: 16 }}>
+              <form action={confirm} style={{ marginTop: 16 }}>
                 <input type="hidden" name="plan" value={draft.id} />
                 <button type="submit">Confirm this plan</button>
                 <span className="muted"> &nbsp;The writer starts from it right away.</span>

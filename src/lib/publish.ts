@@ -65,7 +65,11 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
     await sql`update posts set status = 'failed', error = ${opts.retry ? `retried: ${msg}` : msg} where id = ${postId}`
     if (NEEDS_RECONNECT.test(msg)) await sql`update channels set needs_reconnect = true where id = ${row.channel_id}`
   }
-  if (!row.zernio_account_id) return fail('channel not connected to Zernio')
+  if (!row.zernio_account_id) {
+    // Not connected yet: the post waits and goes out once the owner connects the account (see runMaintenance).
+    await sql`update posts set status = 'waiting', error = ${`connect your ${row.platform} account to post this`} where id = ${postId}`
+    return
+  }
   if (!appUrl()) return fail('APP_URL is not set')
 
   // Slots are per Zernio account, so products sharing one account share its daily posts (the cap is this channel's per-day).
@@ -111,6 +115,12 @@ export async function runMaintenance(): Promise<void> {
 
   // Plan items more than a day overdue are skipped: a late post on an old plan date helps nobody.
   await sql`update plan_items set status = 'skipped' where status = 'planned' and day < current_date - 1`
+
+  // Posts that waited only for an account connection go out once it's connected.
+  const connected = await sql`
+    select p.id from posts p join channels c on c.id = p.channel_id
+    where p.status = 'waiting' and p.error like 'connect your % account to post this' and c.zernio_account_id is not null and c.enabled`
+  for (const c of connected) await publish(c.id, { approved: true })
 
   // Passed review but publish never ran to the end (a crash or timeout): try again.
   const stuck = await sql`select id from posts where status = 'passed' and status_changed_at < now() - interval '10 minutes'`

@@ -59,13 +59,18 @@ test('207 → failed with the error kept', async () => {
   expect(row.error).toMatch(/zernio 207.*media rejected/)
 })
 
-test('channel without Zernio account → failed, not sent', async () => {
+test('channel not connected yet → the post waits, and goes out once the account is connected', async () => {
   const { productId, channelId } = await seed({ account: null })
-  const f = zernio(201, {})
+  const f = zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
   const p = await insertPost(productId, channelId)
   await publish(p.id)
-  expect((await get(p.id))).toMatchObject({ status: 'failed', error: 'channel not connected to Zernio' })
+  expect((await get(p.id))).toMatchObject({ status: 'waiting', error: 'connect your threads account to post this' })
   expect(f).not.toHaveBeenCalled()
+  await runMaintenance()
+  expect((await get(p.id)).status).toBe('waiting')
+  await sql`update channels set zernio_account_id = 'acc1' where id = ${channelId}`
+  await runMaintenance()
+  expect((await get(p.id))).toMatchObject({ status: 'scheduled', error: null })
 })
 
 test('auth-looking error flags the channel for reconnect', async () => {

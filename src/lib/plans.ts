@@ -85,3 +85,13 @@ export async function planWithItems(planId: number): Promise<PlanRow | null> {
   const items = await sql`select *, to_char(day, 'YYYY-MM-DD') as day from plan_items where plan_id = ${planId} order by plan_items.day, plan_items.id`
   return { ...plan, items: [...items] } as unknown as PlanRow
 }
+
+/** The owner agrees: the plan runs, and the product's chosen channels publish once the AI reviewer passes a post. */
+export async function confirmPlan(planId: number): Promise<boolean> {
+  return sql.begin(async tx => {
+    const [p] = await tx`update plans set status = 'confirmed', confirmed_at = now() where id = ${planId} and status = 'draft' returning product_id`
+    if (!p) return false
+    await tx`update channels set auto_publish = true where product_id = ${p.product_id} and enabled and automatable`
+    return true
+  })
+}

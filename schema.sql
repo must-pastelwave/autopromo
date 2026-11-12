@@ -73,3 +73,6 @@ create table if not exists plan_items (
   status text not null default 'planned' check (status in ('planned','written','skipped')));
 create index if not exists plan_items_plan on plan_items(plan_id, day);
 alter table posts add column if not exists plan_item_id int references plan_items;
+-- The journey: when each agent last tried a product (bounds retries), and when a confirmed plan was kicked off.
+alter table products add column if not exists agent_tried jsonb not null default '{}';
+alter table plans add column if not exists kicked_off_at timestamptz;
