@@ -23,9 +23,36 @@ export async function agentProducts() {
     from products pr where pr.active order by pr.id`
 }
 
+/**
+ * What the agents should do now. Research, planning and kickoff come from the products;
+ * writing and reviewing are global, with a cool-down so a stuck item can't start a run every 5 minutes.
+ */
+export async function workToDo(): Promise<{ research: number[]; plan: number[]; kickoff: number[]; write: boolean; review: boolean }> {
+  const products = await agentProducts()
+  const [w] = await sql`
+    select
+      (exists (
+        select 1 from plan_items i join plans pl on pl.id = i.plan_id join products pr on pr.id = pl.product_id
+        join channels c on c.product_id = pl.product_id and c.platform = i.platform and c.enabled
+        where pl.status = 'confirmed' and pr.active and i.status = 'planned' and i.day between current_date - 1 and current_date + 2)
+       or exists (select 1 from posts x join products pr on pr.id = x.product_id where pr.active and x.status = 'blocked' and x.revision = 0))
+      and not exists (select 1 from agent_runs where jobs like '%writer%' and coalesce(started_at, requested_at) > now() - interval '3 hours'
+        and status in ('running', 'done', 'failed')) as write,
+      exists (select 1 from posts x join products pr on pr.id = x.product_id where pr.active and x.status = 'draft')
+      and not exists (select 1 from agent_runs where jobs like '%reviewer%' and coalesce(started_at, requested_at) > now() - interval '1 hour'
+        and status in ('running', 'done', 'failed')) as review`
+  return {
+    research: products.filter(p => p.needs_research).map(p => p.id),
+    plan: products.filter(p => p.needs_plan).map(p => p.id),
+    kickoff: products.filter(p => p.kickoff_plan_id !== null).map(p => p.kickoff_plan_id),
+    write: w.write, review: w.review,
+  }
+}
+
 /** Is there agent work waiting, with no run already going? (Started runs older than 45 minutes count as gone.) */
 export async function pendingWork(): Promise<boolean> {
   const [busy] = await sql`select 1 from agent_runs where status = 'running' and started_at > now() - interval '45 minutes' limit 1`
   if (busy) return false
-  return (await agentProducts()).some(p => p.needs_research || p.needs_plan || p.kickoff_plan_id !== null)
+  const w = await workToDo()
+  return w.research.length > 0 || w.plan.length > 0 || w.kickoff.length > 0 || w.write || w.review
 }

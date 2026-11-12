@@ -49,14 +49,15 @@ jobs:
           esac
           research=""; plan=""; kickoff=""
           if [ "$jobs" = auto ]; then
-            p=$(api products)
-            research=$(echo "$p" | jq -r '[.products[] | select(.needs_research) | .id] | join(" ")')
-            plan=$(echo "$p" | jq -r '[.products[] | select(.needs_plan) | .id] | join(" ")')
-            kickoff=$(echo "$p" | jq -r '[.products[] | select(.kickoff_plan_id != null) | .kickoff_plan_id] | join(" ")')
+            w=$(api work)
+            research=$(echo "$w" | jq -r '.research | join(" ")')
+            plan=$(echo "$w" | jq -r '.plan | join(" ")')
+            kickoff=$(echo "$w" | jq -r '.kickoff | join(" ")')
             jobs=""
             [ -n "$research" ] && jobs="researcher planner"
             [ -n "$plan" ] && [ -z "$research" ] && jobs="planner"
-            [ -n "$kickoff" ] && jobs="$jobs writer reviewer"
+            if [ -n "$kickoff" ] || [ "$(echo "$w" | jq -r .write)" = true ]; then jobs="$jobs writer reviewer"
+            elif [ "$(echo "$w" | jq -r .review)" = true ]; then jobs="$jobs reviewer"; fi
           fi
           jobs=$(echo $jobs)
           turns=0
