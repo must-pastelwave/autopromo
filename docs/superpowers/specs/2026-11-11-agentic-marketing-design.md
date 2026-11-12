@@ -2,6 +2,16 @@
 
 Date: 2026-11-11 · v2 (after Ho Young's review the same day) · Working name: **autopromo**
 
+## What changed in v4 (2026-11-12): the plan comes first
+
+Every post, draft, video and reel comes from a **plan** that the owner and the AI agreed on.
+
+1. **Product → research → plan.** After the researcher has the facts, a **Planner** agent drafts a 4-week plan: goal and one call to action, audience, channels (with why), 3–5 themes, rules, cadence, and a calendar. Each calendar item has a date, channel, format (post, carousel, video/reel, draft), theme, topic, angle, and the facts it will use.
+2. **The owner shapes it on the Plan page:** edit, remove or add items directly, and/or write feedback and ask the Planner to revise (the app starts the agent run right away). Then **Confirm**.
+3. **Only confirmed plan items get written.** The writer takes items coming due; each post links to its item and is never scheduled before the item's date. No confirmed plan, no posts.
+4. **The next plan** is drafted in the last week of the current one, using the results so far, and needs confirming again.
+5. The app starts agent runs itself (GitHub workflow dispatch) with a one-time token; without it, runs wait for the schedule.
+
 ## What changed in v3 (2026-11-12)
 
 1. **Agents run on the owner's Claude subscription** (`CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`) in the owner's own repo. An API key still works as an alternative.

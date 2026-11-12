@@ -4,6 +4,10 @@ export async function GET() {
   const products = await sql`
     select pr.*,
       (jsonb_array_length(pr.fact_sheet) = 0 or pr.researched_at is null or pr.researched_at < now() - interval '7 days') as needs_research,
+      (jsonb_array_length(pr.fact_sheet) > 0 and (
+        exists (select 1 from plans where product_id = pr.id and status = 'revising')
+        or not exists (select 1 from plans where product_id = pr.id and status in ('draft', 'confirmed') and ends_on >= current_date + 7)
+      )) as needs_plan,
       coalesce((
       select json_agg(json_build_object('id', c.id, 'platform', c.platform, 'enabled', c.enabled,
         'automatable', c.automatable, 'started_at', c.started_at, 'per_day', c.per_day) order by c.id)

@@ -56,3 +56,20 @@ update channels c set per_day = greatest(1, pr.threads_per_day) from products pr
 alter table products add column if not exists researched_at timestamptz;
 alter table products alter column audience set default '';
 alter table products alter column language set default '';
+-- Plans: every post comes from an item of a plan the owner confirmed.
+create table if not exists plans (
+  id serial primary key, product_id int not null references products,
+  status text not null default 'draft' check (status in ('draft','revising','confirmed','done','superseded')),
+  starts_on date not null, ends_on date not null,
+  strategy jsonb not null default '{}',   -- {goal, cta, audience, channels:[{platform, why}], themes:[{name, why}], rules:[...]}
+  feedback text not null default '', revision int not null default 0,
+  created_at timestamptz not null default now(), confirmed_at timestamptz);
+create index if not exists plans_product on plans(product_id, starts_on);
+create table if not exists plan_items (
+  id serial primary key, plan_id int not null references plans on delete cascade,
+  day date not null, platform text not null,
+  format text not null check (format in ('post','carousel','video','draft')),
+  theme text not null, topic text not null, angle text not null default '', facts int[] not null default '{}',
+  status text not null default 'planned' check (status in ('planned','written','skipped')));
+create index if not exists plan_items_plan on plan_items(plan_id, day);
+alter table posts add column if not exists plan_item_id int references plan_items;

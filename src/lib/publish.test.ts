@@ -290,3 +290,14 @@ test('link-in-bio note follows the product language', async () => {
   await publish(p.id)
   expect(JSON.parse(String((f.mock.calls[0] as unknown as [string, RequestInit])[1].body)).content).toBe('Winter tips\n\nLink in our profile')
 })
+
+test('a post is never scheduled before its plan item\'s day', async () => {
+  const { productId, channelId } = await seed()
+  zernio(201, { post: { _id: 'z1', status: 'scheduled' } })
+  const [pl] = await sql`insert into plans (product_id, status, starts_on, ends_on) values (${productId}, 'confirmed', current_date, current_date + 27) returning id`
+  const [it] = await sql`insert into plan_items (plan_id, day, platform, format, theme, topic, status) values (${pl.id}, current_date + 5, 'threads', 'post', 't', 'x', 'written') returning id, to_char(day, 'YYYY-MM-DD') as day`
+  const p = await insertPost(productId, channelId, { plan_item_id: it.id })
+  await publish(p.id)
+  const when = (await get(p.id)).scheduled_for as Date
+  expect(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(when) >= it.day).toBe(true)
+})

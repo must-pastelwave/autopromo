@@ -1,7 +1,7 @@
 import { test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { sql } from '@/lib/db'
-import { resetDb, seed, insertPost } from '@/test/db'
+import { resetDb, seed, insertPost, planItem } from '@/test/db'
 import { proxy } from '@/proxy'
 import { POST as createPost, GET as listPosts } from './posts/route'
 import { PUT as revisePost } from './posts/[id]/route'
@@ -17,6 +17,11 @@ afterEach(() => vi.unstubAllGlobals())
 const json = (method: string, body?: unknown) =>
   new Request('http://app.test/x', { method, body: body === undefined ? undefined : JSON.stringify(body), headers: { 'content-type': 'application/json' } })
 const ctx = (params: { id: string }) => ({ params: Promise.resolve(params) })
+/** Attach a fresh planned item of a confirmed plan for the body's channel. */
+async function withItem<T extends { product_id: number; channel_id: number }>(b: T): Promise<T & { plan_item_id?: number }> {
+  const [c] = await sql`select platform from channels where id = ${b.channel_id}`
+  return c ? { ...b, plan_item_id: await planItem(b.product_id, c.platform) } : b
+}
 
 const textPost = (productId: number, channelId: number, extra: Record<string, unknown> = {}) => ({
   product_id: productId, channel_id: channelId, client_key: '2026-11-12-threads-1', kind: 'text',
@@ -38,7 +43,7 @@ test('products lists active products with enabled channels', async () => {
 
 test('create: clean post → draft with a link code', async () => {
   const { productId, channelId } = await seed()
-  const r = await createPost(json('POST', textPost(productId, channelId)))
+  const r = await createPost(json('POST', await withItem(textPost(productId, channelId))))
   expect(r.status).toBe(201)
   const { post } = await r.json()
   expect(post).toMatchObject({ status: 'draft', revision: 0 })
@@ -47,7 +52,7 @@ test('create: clean post → draft with a link code', async () => {
 
 test('create: banned phrase → blocked with reason', async () => {
   const { productId, channelId } = await seed()
-  const { post } = await (await createPost(json('POST', textPost(productId, channelId, { caption: '최저가 보장 호텔' })))).json()
+  const { post } = await (await createPost(json('POST', await withItem(textPost(productId, channelId, { caption: '최저가 보장 호텔' }))))).json()
   expect(post).toMatchObject({ status: 'blocked', review_reason: 'banned: 최저가 보장' })
 })
 
@@ -55,14 +60,14 @@ test('create: banned phrase inside a slide is caught too', async () => {
   const { productId } = await seed()
   const [ig] = await sql`insert into channels (product_id, platform, automatable, enabled, zernio_account_id) values (${productId}, 'instagram', true, true, 'ig1') returning id`
   const slides = ['팁 1', '팁 2', '마감 임박', '팁 4', '팁 5'].map(text => ({ text }))
-  const { post } = await (await createPost(json('POST', textPost(productId, ig.id, { kind: 'carousel', slides })))).json()
+  const { post } = await (await createPost(json('POST', await withItem(textPost(productId, ig.id, { kind: 'carousel', slides }))))).json()
   expect(post.status).toBe('blocked')
 })
 
 test('create: same client_key twice → one row, second returns 200', async () => {
   const { productId, channelId } = await seed()
-  expect((await createPost(json('POST', textPost(productId, channelId)))).status).toBe(201)
-  expect((await createPost(json('POST', textPost(productId, channelId)))).status).toBe(200)
+  expect((await createPost(json('POST', await withItem(textPost(productId, channelId))))).status).toBe(201)
+  expect((await createPost(json('POST', await withItem(textPost(productId, channelId))))).status).toBe(200)
   expect((await sql`select count(*)::int as n from posts`)[0].n).toBe(1)
 })
 
@@ -72,7 +77,7 @@ test('create: bad input → 400', async () => {
     { kind: 'video' }, { caption: '' }, { kind: 'carousel', slides: [{ text: 'a' }] },
     { facts_used: [9] }, { channel_id: 9999 }, { slides: [{ text: 'x', photo_url: 'javascript:alert(1)' }] },
   ]) {
-    expect((await createPost(json('POST', textPost(productId, channelId, bad)))).status, JSON.stringify(bad)).toBe(400)
+    expect((await createPost(json('POST', await withItem(textPost(productId, channelId, bad))))).status, JSON.stringify(bad)).toBe(400)
   }
   expect((await createPost(new Request('http://app.test/x', { method: 'POST', body: 'not json' }))).status).toBe(400)
 })
@@ -80,26 +85,26 @@ test('create: bad input → 400', async () => {
 test('instagram needs a carousel', async () => {
   const { productId } = await seed({ platform: 'instagram' })
   const [c] = await sql`select id from channels`
-  expect((await createPost(json('POST', textPost(productId, c.id)))).status).toBe(400)
+  expect((await createPost(json('POST', await withItem(textPost(productId, c.id))))).status).toBe(400)
 })
 
 test('tiktok and youtube take video posts only, 3–8 slides', async () => {
   const { productId } = await seed({ platform: 'tiktok' })
   const [c] = await sql`select id from channels`
   const slides = (n: number) => Array.from({ length: n }, (_, i) => ({ text: `팁 ${i}` }))
-  expect((await createPost(json('POST', textPost(productId, c.id)))).status).toBe(400)
-  expect((await createPost(json('POST', textPost(productId, c.id, { kind: 'video', slides: slides(2) })))).status).toBe(400)
-  expect((await createPost(json('POST', textPost(productId, c.id, { kind: 'video', slides: slides(9) })))).status).toBe(400)
-  expect((await createPost(json('POST', textPost(productId, c.id, { kind: 'video', slides: slides(4) })))).status).toBe(201)
+  expect((await createPost(json('POST', await withItem(textPost(productId, c.id))))).status).toBe(400)
+  expect((await createPost(json('POST', await withItem(textPost(productId, c.id, { kind: 'video', slides: slides(2) }))))).status).toBe(400)
+  expect((await createPost(json('POST', await withItem(textPost(productId, c.id, { kind: 'video', slides: slides(9) }))))).status).toBe(400)
+  expect((await createPost(json('POST', await withItem(textPost(productId, c.id, { kind: 'video', slides: slides(4) }))))).status).toBe(201)
 })
 
 test('youtube: first caption line is the title, max 100 chars', async () => {
   const { productId } = await seed({ platform: 'youtube' })
   const [c] = await sql`select id from channels`
   const slides = Array.from({ length: 4 }, (_, i) => ({ text: `팁 ${i}` }))
-  const long = textPost(productId, c.id, { kind: 'video', slides, caption: 'a'.repeat(101) + '\n본문' })
+  const long = await withItem(textPost(productId, c.id, { kind: 'video', slides, caption: 'a'.repeat(101) + '\n본문' }))
   expect((await createPost(json('POST', long))).status).toBe(400)
-  const ok = textPost(productId, c.id, { kind: 'video', slides, caption: '제목\n본문' })
+  const ok = await withItem(textPost(productId, c.id, { kind: 'video', slides, caption: '제목\n본문' }))
   expect((await createPost(json('POST', ok))).status).toBe(201)
 })
 
@@ -147,8 +152,22 @@ test('products: needs_research for a new product, not after the researcher saved
 test('x: caption must leave room for the link (max 250 chars)', async () => {
   const { productId } = await seed({ platform: 'x' })
   const [c] = await sql`select id from channels`
-  expect((await createPost(json('POST', textPost(productId, c.id, { caption: 'a'.repeat(251) })))).status).toBe(400)
-  expect((await createPost(json('POST', textPost(productId, c.id, { caption: 'a'.repeat(250) })))).status).toBe(201)
+  expect((await createPost(json('POST', await withItem(textPost(productId, c.id, { caption: 'a'.repeat(251) }))))).status).toBe(400)
+  expect((await createPost(json('POST', await withItem(textPost(productId, c.id, { caption: 'a'.repeat(250) }))))).status).toBe(201)
+})
+
+test('posts come only from a planned item of the confirmed plan for that channel', async () => {
+  const { productId, channelId } = await seed()
+  const status = async (extra: Record<string, unknown>) => (await createPost(json('POST', textPost(productId, channelId, extra)))).status
+  expect(await status({})).toBe(400)
+  expect(await status({ plan_item_id: await planItem(productId, 'threads', { planStatus: 'draft' }) })).toBe(400)
+  expect(await status({ plan_item_id: await planItem(productId, 'threads', { itemStatus: 'written' }) })).toBe(400)
+  expect(await status({ plan_item_id: await planItem(productId, 'linkedin') })).toBe(400)
+  const id = await planItem(productId, 'threads')
+  const r = await createPost(json('POST', textPost(productId, channelId, { plan_item_id: id })))
+  expect(r.status).toBe(201)
+  expect((await r.json()).post.plan_item_id).toBe(id)
+  expect((await sql`select status from plan_items where id = ${id}`)[0].status).toBe('written')
 })
 
 test('list drafts includes the rules the reviewer needs', async () => {

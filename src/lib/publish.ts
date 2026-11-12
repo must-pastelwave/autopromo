@@ -1,5 +1,5 @@
 import { sql } from './db'
-import { nextSlot } from './slots'
+import { nextSlot, startOfDay } from './slots'
 import { createPost, getPost, uploadMedia } from './zernio'
 import { renderVideo } from './video'
 import { trackUse } from './photos'
@@ -50,8 +50,9 @@ export async function renderPostVideo(postId: number, slideCount: number, revisi
 /** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
 export async function publish(postId: number, opts: { retry?: boolean; approved?: boolean } = {}): Promise<void> {
   const [row] = await sql`
-    select p.*, c.platform, c.enabled, c.automatable, c.auto_publish, c.zernio_account_id, c.started_at, c.per_day, pr.timezone, pr.language
+    select p.*, c.platform, c.enabled, c.automatable, c.auto_publish, c.zernio_account_id, c.started_at, c.per_day, pr.timezone, pr.language, to_char(i.day, 'YYYY-MM-DD') as plan_day
     from posts p join channels c on c.id = p.channel_id join products pr on pr.id = p.product_id
+    left join plan_items i on i.id = p.plan_item_id
     where p.id = ${postId}`
   if (!row) return
   // Drafts-only channels always wait; automatable ones wait until auto-publish is on or a person approves.
@@ -74,8 +75,10 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
       and p.id <> ${postId} and p.status in ('scheduled', 'published')
       and p.scheduled_for > now() - interval '1 day'`
   // ponytail: two publishes racing on one account could pick the same slot; agents run one at a time.
+  // Never before the plan item's day.
+  const notBefore = row.plan_day ? startOfDay(row.timezone, row.plan_day) : new Date(0)
   const when = nextSlot({
-    now: new Date(), tz: row.timezone,
+    now: new Date(Math.max(Date.now(), notBefore.getTime())), tz: row.timezone,
     perDay: row.per_day,
     startedAt: row.started_at, taken: taken.map(t => t.scheduled_for),
   })
@@ -105,6 +108,9 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
 /** Periodic upkeep: retry transient failures once, sync published state, expire old drafts. */
 export async function runMaintenance(): Promise<void> {
   await sql`update posts set status = 'expired' where status = 'waiting' and status_changed_at < now() - interval '7 days'`
+
+  // Plan items more than a day overdue are skipped: a late post on an old plan date helps nobody.
+  await sql`update plan_items set status = 'skipped' where status = 'planned' and day < current_date - 1`
 
   // Passed review but publish never ran to the end (a crash or timeout): try again.
   const stuck = await sql`select id from posts where status = 'passed' and status_changed_at < now() - interval '10 minutes'`
