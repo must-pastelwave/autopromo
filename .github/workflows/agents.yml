@@ -50,6 +50,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
+          show_full_output: true   # TEMP: diagnosing denied tool calls
           prompt: |
             You are the autopromo ${{ steps.pick.outputs.agent }}.
             Read agents/common.md, then agents/${{ steps.pick.outputs.agent }}.md, and do that job now.
