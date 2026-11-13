@@ -15,7 +15,7 @@ const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
-const back = (msg: string, section = 'settings'): never => redirect(`/${section}?msg=${encodeURIComponent(msg)}`)
+const back = (msg: string, section = 'settings'): never => redirect(`/${section}${section.includes('?') ? '&' : '?'}msg=${encodeURIComponent(msg)}`)
 
 export async function selectProduct(f: FormData) {
   await requireOwner()
@@ -63,12 +63,12 @@ export async function saveGoals(f: FormData) {
   const col = (k: string) => f.getAll(k).map(v => String(v))
   const metric = col('metric'), source = col('source'), m1 = col('m1'), m3 = col('m3')
   const goals = parseGoals(metric.map((m, i) => ({ metric: m, source: source[i] ?? '', m1: m1[i] ?? '', m3: m3[i] ?? '' })))
-  if (typeof goals === 'string') back(goals)
+  if (typeof goals === 'string') back(goals, 'settings?tab=goals')
   // A goal we can't measure is nonsense: check every GitHub repo exists now, and take its first star count.
   for (const g of goals as Exclude<typeof goals, string>) {
     if (g.metric !== 'github_stars') continue
     const stars = await repoStars(g.source)
-    if (stars === null) back(`GitHub can't find the public repo ${g.source}. Check the name (owner/name).`)
+    if (stars === null) back(`GitHub can't find the public repo ${g.source}. Check the name (owner/name).`, 'settings?tab=goals')
     await saveSnapshot(g.source, 'github_stars', stars!)
   }
   await sql.begin(async tx => {
@@ -76,21 +76,21 @@ export async function saveGoals(f: FormData) {
     for (const g of goals as Exclude<typeof goals, string>) await tx`insert into goals ${tx({ ...g, product_id: id })}`
   })
   revalidatePath('/', 'layout')
-  back('Goals saved')
+  back('Goals saved', 'settings?tab=goals')
 }
 
 export async function saveFacts(f: FormData) {
   await requireOwner()
   const facts = parseFactLines(String(f.get('facts') ?? ''))
-  if (typeof facts === 'string') back(facts)
+  if (typeof facts === 'string') back(facts, 'settings?tab=facts')
   const r = await replaceFacts(Number(s(f, 'id')), facts as Exclude<typeof facts, string>)
-  back(r ? `Fact sheet saved${r.dropped_scheduled ? `; ${r.dropped_scheduled} scheduled post(s) cancelled` : ''}` : 'Product not found')
+  back(r ? `Fact sheet saved${r.dropped_scheduled ? `; ${r.dropped_scheduled} scheduled post(s) cancelled` : ''}` : 'Product not found', 'settings?tab=facts')
 }
 
 export async function savePlaybook(f: FormData) {
   await requireOwner()
   await sql`update products set playbook = ${String(f.get('playbook') ?? '').slice(0, 5000)} where id = ${Number(s(f, 'id'))}`
-  back('Playbook saved')
+  back('Playbook saved', 'settings?tab=playbook')
 }
 
 export async function toggleChannel(f: FormData) {
