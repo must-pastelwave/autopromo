@@ -155,7 +155,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
       {j.draft?.status === 'draft' && <div className="notice"><b>Your next plan is ready</b> (from {j.draft.starts}). <Link href="/plan">Review and confirm it</Link> so the campaign continues.</div>}
       {j.unconnected.length > 0 && <div className="notice"><b>Connect {j.unconnected.join(', ')}</b> so those posts can go out; they wait until then. <Link href="/channels">Connect in Channels</Link>.</div>}
 
-      <Scorecard planId={j.running!.id} />
+      <Scorecard planId={j.running!.id} productId={p.id} />
 
       <h2>This week in the plan <span className="muted" style={{ fontWeight: 400 }}>· {j.running!.starts} → {j.running!.ends} · {progress.written}/{progress.total} items written · {counts.waiting} waiting · <Link href="/plan">whole plan</Link></span></h2>
       <div className="scroll"><table>

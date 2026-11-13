@@ -1,25 +1,26 @@
 import { sql } from './db'
+import { measure } from './goals'
 
-export type Numbers = { published: number; signups: number; purchases: number; seen: number; engaged: number; clicks: number; followers: number }
-type Row = Omit<Numbers, 'followers'> & { key: string }
+export type Numbers = { published: number; signups: number; purchases: number; seen: number; engaged: number; clicks: number; followers: number; github_stars: number }
+type Row = Omit<Numbers, 'followers' | 'github_stars'> & { key: string }
 
 /** Plan targets, most important first: sign-ups are what the campaign is for. */
-export const TARGET_KEYS = ['signups', 'purchases', 'clicks', 'seen', 'engaged', 'followers'] as const
+export const TARGET_KEYS = ['signups', 'purchases', 'github_stars', 'clicks', 'seen', 'engaged', 'followers'] as const
 export const TARGET_LABEL: Record<(typeof TARGET_KEYS)[number], string> = {
-  signups: 'sign-ups', purchases: 'purchases', clicks: 'link clicks', seen: 'seen', engaged: 'engagements', followers: 'followers gained',
+  signups: 'sign-ups', purchases: 'purchases', github_stars: 'GitHub stars', clicks: 'link clicks', seen: 'seen', engaged: 'engagements', followers: 'followers gained',
 }
 
 /**
  * How a plan's campaign is doing: sign-ups and purchases (reported by the product site),
  * seen (impressions or views), engaged (likes, comments, shares, saves), clicks on our tracked links,
- * and followers gained on its channels since the plan started, with the plan's own targets
- * and the owner's goal for the product.
+ * followers gained on its channels and GitHub stars gained (for the product's star goals) since the plan started,
+ * with the plan's own targets.
  */
 export async function scorecard(planId: number) {
   const [plan] = await sql`
-    select pl.product_id, pl.strategy, pl.starts_on, pl.ends_on, pr.goal_kind, pr.goal_1m, pr.goal_3m,
+    select pl.product_id, pl.strategy, pl.starts_on::text as starts_on, pl.ends_on,
       (least(current_date, pl.ends_on) - pl.starts_on + 1)::int as elapsed, (pl.ends_on - pl.starts_on + 1)::int as total
-    from plans pl join products pr on pr.id = pl.product_id where pl.id = ${planId}`
+    from plans pl where pl.id = ${planId}`
   if (!plan) return null
   const per = (group: 'theme' | 'platform') => sql<Row[]>`
     select i.${sql(group)} as key, count(x.id)::int as published,
@@ -43,16 +44,18 @@ export async function scorecard(planId: number) {
           (select followers from follower_counts fc where fc.channel_id = c.id order by day limit 1)) as base_f
       from channels c where c.product_id = ${plan.product_id} and c.enabled) x
     where now_f is not null and base_f is not null`
+  let stars = 0
+  for (const g of await sql`select distinct source from goals where product_id = ${plan.product_id} and metric = 'github_stars'`)
+    stars += (await measure(plan.product_id, 'github_stars', g.source, plan.starts_on)).value
   const sum = (k: keyof Row) => byChannel.reduce((a, r) => a + (r[k] as number), 0)
   const t = plan.strategy?.targets ?? {}
   const target = (k: string) => (typeof t[k] === 'number' && t[k] > 0 ? t[k] : null)
   return {
     totals: {
       published: sum('published'), signups: sum('signups'), purchases: sum('purchases'),
-      seen: sum('seen'), engaged: sum('engaged'), clicks: sum('clicks'), followers: f.gained,
+      seen: sum('seen'), engaged: sum('engaged'), clicks: sum('clicks'), followers: f.gained, github_stars: stars,
     } as Numbers,
     targets: Object.fromEntries(TARGET_KEYS.map(k => [k, target(k)])) as Record<(typeof TARGET_KEYS)[number], number | null>,
-    goal: { kind: plan.goal_kind as 'signup' | 'purchase', month: plan.goal_1m as number | null, threeMonths: plan.goal_3m as number | null },
     byTheme, byChannel, elapsedDays: Math.max(0, plan.elapsed), totalDays: plan.total,
   }
 }

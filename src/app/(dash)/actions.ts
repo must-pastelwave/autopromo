@@ -9,12 +9,12 @@ import { publish } from '@/lib/publish'
 import { dispatchAgent } from '@/lib/github'
 import { requestRun } from '@/lib/runs'
 import { retryPost } from '@/lib/retry'
+import { parseGoals, repoStars, saveSnapshot } from '@/lib/goals'
 
 const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok', 'linkedin', 'bluesky']
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
-const goal = (f: FormData, k: string) => { const n = Math.round(Number(s(f, k))); return n > 0 ? n : null }
 const back = (msg: string, section = 'settings'): never => redirect(`/${section}?msg=${encodeURIComponent(msg)}`)
 
 export async function selectProduct(f: FormData) {
@@ -33,7 +33,6 @@ export async function saveProduct(f: FormData) {
   // Blank fields are filled by the researcher on its next run; a blank name starts as the site's host.
   const fields = {
     url, name: name || new URL(url).hostname.replace(/^www\./, ''), audience, language: s(f, 'language'), timezone: tz,
-    goal_kind: s(f, 'goal_kind') === 'purchase' ? 'purchase' : 'signup', goal_1m: goal(f, 'goal_1m'), goal_3m: goal(f, 'goal_3m'),
     tone_notes: s(f, 'tone_notes'), banned_words: s(f, 'banned_words').split(/[\n,]/).map(w => w.trim()).filter(Boolean),
   }
   if (id) {
@@ -56,6 +55,28 @@ export async function saveProduct(f: FormData) {
   }
   revalidatePath('/', 'layout')
   back('Saved')
+}
+
+export async function saveGoals(f: FormData) {
+  await requireOwner()
+  const id = Number(s(f, 'id'))
+  const col = (k: string) => f.getAll(k).map(v => String(v))
+  const metric = col('metric'), source = col('source'), m1 = col('m1'), m3 = col('m3')
+  const goals = parseGoals(metric.map((m, i) => ({ metric: m, source: source[i] ?? '', m1: m1[i] ?? '', m3: m3[i] ?? '' })))
+  if (typeof goals === 'string') back(goals)
+  // A goal we can't measure is nonsense: check every GitHub repo exists now, and take its first star count.
+  for (const g of goals as Exclude<typeof goals, string>) {
+    if (g.metric !== 'github_stars') continue
+    const stars = await repoStars(g.source)
+    if (stars === null) back(`GitHub can't find the public repo ${g.source}. Check the name (owner/name).`)
+    await saveSnapshot(g.source, 'github_stars', stars!)
+  }
+  await sql.begin(async tx => {
+    await tx`delete from goals where product_id = ${id}`
+    for (const g of goals as Exclude<typeof goals, string>) await tx`insert into goals ${tx({ ...g, product_id: id })}`
+  })
+  revalidatePath('/', 'layout')
+  back('Goals saved')
 }
 
 export async function saveFacts(f: FormData) {

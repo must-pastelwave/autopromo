@@ -3,6 +3,7 @@ import { bearerMatches } from '@/lib/auth'
 import { pendingWork } from '@/lib/pending'
 import { dispatchAgent } from '@/lib/github'
 import { syncMetrics } from '@/lib/metrics'
+import { syncCounters } from '@/lib/goals'
 
 // Vercel Cron (every 5 minutes) sends `Authorization: Bearer <CRON_SECRET>`.
 // GitHub's own schedule can run hours late, so this is what reliably starts the agents when work is waiting.
@@ -13,5 +14,6 @@ export async function GET(req: Request) {
   const started = (await pendingWork()) ? await dispatchAgent('auto') : false
   await runMaintenance()
   const metrics = await syncMetrics()
-  return Response.json({ ok: true, started, metrics })
+  const counters = await syncCounters()
+  return Response.json({ ok: true, started, metrics, counters })
 }

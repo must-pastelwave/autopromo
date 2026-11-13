@@ -1,4 +1,7 @@
-import { saveFacts, savePlaybook, saveProduct, setActive } from '../actions'
+import { sql } from '@/lib/db'
+import { METRICS } from '@/lib/goals'
+import { Goals } from '../journey/goals'
+import { saveFacts, saveGoals, savePlaybook, saveProduct, setActive } from '../actions'
 
 export function ProductForm({ p }: { p?: Record<string, any> }) {
   return (
@@ -24,14 +27,6 @@ export function ProductForm({ p }: { p?: Record<string, any> }) {
       )}
       <label>Tone notes and cautions<textarea name="tone_notes" rows={3} defaultValue={p?.tone_notes} placeholder="How posts should sound, and anything they must always say or never say" /></label>
       <label>Extra banned words (one per line)<textarea name="banned_words" rows={3} defaultValue={p?.banned_words?.join('\n')} /></label>
-      <fieldset className="choices-field">
-        <legend>Goal (optional): the planner works backwards from it</legend>
-        <div className="row">
-          <label>Count<select name="goal_kind" defaultValue={p?.goal_kind ?? 'signup'}><option value="signup">Sign-ups</option><option value="purchase">Purchases</option></select></label>
-          <label>In 1 month<input name="goal_1m" type="number" min={1} defaultValue={p?.goal_1m ?? ''} size={6} /></label>
-          <label>In 3 months<input name="goal_3m" type="number" min={1} defaultValue={p?.goal_3m ?? ''} size={6} /></label>
-        </div>
-      </fieldset>
       <button type="submit">{p ? 'Save' : 'Add product'}</button>
     </form>
   )
@@ -51,6 +46,10 @@ export async function SettingsSection({ p }: { p: Record<string, any> | null }) 
             </form>
           </div>
           <ProductForm p={p} />
+          <h3 id="goals">Goals</h3>
+          <p className="muted">What this campaign is for. Add as many as you like; the planner works backwards from them. Only numbers autopromo can measure are offered, and each goal shows whether it is actually being tracked.</p>
+          <GoalsForm productId={p.id} />
+          <Goals productId={p.id} />
           <h3>Profile bio link</h3>
           <p>Put this in the TikTok, YouTube and Instagram bio once: <code>{app}/l/{p.slug}</code></p>
           <h3>Fact sheet</h3>
@@ -71,5 +70,28 @@ export async function SettingsSection({ p }: { p: Record<string, any> | null }) 
       )}
       {!p && <ProductForm />}
     </>
+  )
+}
+
+async function GoalsForm({ productId }: { productId: number }) {
+  const goals = await sql`select metric, source, target_1m, target_3m from goals where product_id = ${productId} order by id`
+  const rows = [...goals, {}, {}] as Record<string, any>[]
+  return (
+    <form action={saveGoals} className="stack">
+      <input type="hidden" name="id" value={productId} />
+      {rows.map((g, i) => (
+        <div className="row" key={i}>
+          <label>Goal<select name="metric" defaultValue={g.metric ?? ''}>
+            <option value="">—</option>
+            {Object.entries(METRICS).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
+          </select></label>
+          <label>GitHub repo (stars only)<input name="source" defaultValue={g.source ?? ''} placeholder="owner/name" size={18} /></label>
+          <label>In 1 month<input name="m1" type="number" min={1} defaultValue={g.target_1m ?? ''} size={6} /></label>
+          <label>In 3 months<input name="m3" type="number" min={1} defaultValue={g.target_3m ?? ''} size={6} /></label>
+        </div>
+      ))}
+      <p className="muted">How each is measured: {Object.values(METRICS).map(m => `${m.label}: ${m.how}`).join(' · ')}. Clear a row to remove that goal.</p>
+      <button type="submit">Save goals</button>
+    </form>
   )
 }
