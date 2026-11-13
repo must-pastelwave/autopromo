@@ -1,17 +1,17 @@
 import { sql } from '@/lib/db'
 import { scorecard, TARGET_KEYS, TARGET_LABEL } from '@/lib/scorecard'
+import { Goals } from './goals'
 
 const fmt = (n: number) => new Intl.NumberFormat('en', { notation: n >= 10000 ? 'compact' : 'standard' }).format(n)
 
 /** The campaign vs the plan's targets: sign-ups first, then clicks, reach, engagement and followers. */
-export async function Scorecard({ planId }: { planId: number }) {
+export async function Scorecard({ planId, productId }: { planId: number; productId: number }) {
   const s = await scorecard(planId)
   if (!s) return null
   const [sync] = await sql`select at, note from sync_state where key = 'metrics'`
   const pace = s.totalDays ? s.elapsedDays / s.totalDays : 0
-  // Purchases only matter for products that sell directly; hide the tile until there's a target or a purchase.
-  const keys = TARGET_KEYS.filter(k => k !== 'purchases' || s.targets.purchases || s.totals.purchases)
-  const g = s.goal, goalUnit = g.kind === 'purchase' ? 'purchases' : 'sign-ups'
+  // Purchases and stars only matter for some products; show their tiles once there's a target or a number.
+  const keys = TARGET_KEYS.filter(k => !['purchases', 'github_stars'].includes(k) || s.targets[k] || s.totals[k])
   const rows = (list: typeof s.byTheme) => list.map(r => (
     <tr key={r.key}><td>{r.key}</td><td>{r.published}</td><td>{r.signups}</td><td>{fmt(r.seen)}</td><td>{fmt(r.engaged)}</td><td>{r.clicks}</td>
       <td>{r.seen ? `${((r.clicks / r.seen) * 100).toFixed(2)}%` : '—'}</td></tr>
@@ -19,7 +19,7 @@ export async function Scorecard({ planId }: { planId: number }) {
   return (
     <section>
       <h2>Campaign results <span className="muted" style={{ fontWeight: 400 }}>· day {s.elapsedDays} of {s.totalDays} · {s.totals.published} posts out</span></h2>
-      {!!(g.month || g.threeMonths) && <p><b>Product goal</b> {[g.month && `${g.month.toLocaleString('en')} ${goalUnit} a month`, g.threeMonths && `${g.threeMonths.toLocaleString('en')} in 3 months`].filter(Boolean).join(' · ')}</p>}
+      <Goals productId={productId} />
       <div className="stats">
         {keys.map(k => {
           const actual = s.totals[k], target = s.targets[k]
@@ -35,7 +35,7 @@ export async function Scorecard({ planId }: { planId: number }) {
         })}
       </div>
       <p className="muted" style={{ marginTop: 8 }}>
-        Sign-ups and purchases are counted when the product site reports them. Views and engagement come from each platform (via Zernio), clicks from our own links, followers per account. The bar&apos;s mark is where the plan should be today.
+        Sign-ups and purchases are counted when the product site reports them; GitHub stars are read from GitHub. Views and engagement come from each platform (via Zernio), clicks from our own links, followers per account. The bar&apos;s mark is where the plan should be today.
         {' '}{sync?.note ? <b>{sync.note}.</b> : sync ? `Last synced ${new Date(sync.at).toLocaleString('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })} KST.` : 'First sync after the first post is published.'}
       </p>
       {s.totals.published > 0 && <div className="two">

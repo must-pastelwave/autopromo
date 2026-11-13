@@ -17,7 +17,7 @@ Shell `$VARIABLES`, pipes and other commands are blocked; only plain `curl` comm
 
 | Call | Use |
 |---|---|
-| `GET /api/agent/products` | active products with their enabled channels, fact sheet, playbook, banned words, and the owner's goal (`goal_kind`, `goal_1m`, `goal_3m`) |
+| `GET /api/agent/products` | active products with their enabled channels, fact sheet, playbook, banned words, and the owner's `goals` (each with `metric`, `target_1m`, `target_3m`, whether it's tracked and why, and `last30`/`last90` results) |
 | `PUT /api/agent/products/<id>/facts` `{facts:[{fact, source_url}]}` | replace the fact sheet |
 | `PUT /api/agent/products/<id>/playbook` `{playbook}` | replace the playbook |
 | `GET /api/agent/posts?status=draft` (or `blocked`) | posts with their product's fact sheet and rules |

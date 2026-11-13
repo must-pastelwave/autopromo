@@ -95,7 +95,22 @@ create table if not exists follower_counts (
 create table if not exists sync_state (key text primary key, at timestamptz not null, note text not null default '');
 -- Owner asked to write a plan item again (after its post was blocked): bypasses the writer cool-down once.
 alter table plan_items add column if not exists retry_at timestamptz;
--- The owner's goal per product (sign-ups or purchases, in 1 and 3 months); the planner works backwards from it.
-alter table products add column if not exists goal_kind text not null default 'signup';
-alter table products add column if not exists goal_1m int;
-alter table products add column if not exists goal_3m int;
+-- Goals: any number autopromo can measure, several per product. The planner works backwards from them.
+create table if not exists goals (
+  id serial primary key, product_id int not null references products on delete cascade,
+  metric text not null check (metric in ('signups','purchases','clicks','seen','engaged','followers','github_stars')),
+  source text not null default '',   -- github_stars: "owner/repo"
+  target_1m int, target_3m int, created_at timestamptz not null default now());
+create index if not exists goals_product on goals(product_id);
+-- Outside counters (GitHub stars), one value per day.
+create table if not exists counter_snapshots (
+  source text not null, metric text not null, day date not null, value int not null, primary key (source, metric, day));
+-- 2026-11-13 had one goal as product columns: move it into goals once.
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_name = 'products' and column_name = 'goal_1m') then
+    insert into goals (product_id, metric, target_1m, target_3m)
+      select id, case goal_kind when 'purchase' then 'purchases' else 'signups' end, goal_1m, goal_3m
+      from products where goal_1m is not null or goal_3m is not null;
+    alter table products drop column goal_kind, drop column goal_1m, drop column goal_3m;
+  end if;
+end $$;
