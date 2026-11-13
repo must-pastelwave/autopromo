@@ -18,7 +18,7 @@ export function ProductForm({ p }: { p?: Record<string, any> }) {
         <fieldset className="choices-field">
           <legend>Where to post (optional; you can choose after research)</legend>
           <div className="choices">
-            {['x', 'linkedin', 'youtube', 'instagram', 'threads', 'tiktok', 'facebook', 'reddit', 'naver_blog'].map(pl => (
+            {['x', 'linkedin', 'youtube', 'instagram', 'threads', 'tiktok', 'facebook', 'telegram', 'discord', 'reddit', 'naver_blog'].map(pl => (
               <label key={pl} className="choice"><input type="checkbox" name="platform" value={pl} /><span><b>{pl}</b></span></label>
             ))}
           </div>

@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db'
 import { CONNECTABLE, listAccounts, zernioPlatform } from '@/lib/zernio'
-import { setChannelAccount, setPerDay, toggleAutoPublish, toggleChannel } from '../actions'
+import { isDirect, maskWebhook, telegramBotName } from '@/lib/direct'
+import { setChannelAccount, setDirectTarget, setPerDay, toggleAutoPublish, toggleChannel } from '../actions'
 
 export async function ChannelsSection({ p }: { p: Record<string, any> }) {
   const channels = await sql`
@@ -12,16 +13,17 @@ export async function ChannelsSection({ p }: { p: Record<string, any> }) {
   let accounts: Awaited<ReturnType<typeof listAccounts>> = []
   let zernioError = ''
   try { accounts = await listAccounts() } catch (e) { zernioError = e instanceof Error ? e.message : String(e) }
+  const bot = channels.some(c => c.platform === 'telegram') ? await telegramBotName() : null
   return (
     <>
       {zernioError && <div className="notice">Can&apos;t reach Zernio ({zernioError}). Check ZERNIO_API_KEY.</div>}
       <p className="muted">Press <b>Connect</b> and log in to the account yourself (never by script); it links here automatically. You can also pick an account another product already uses. Every channel starts as &ldquo;Approve first&rdquo;: posts wait for you. Switch to Auto once posts go through cleanly. Keep new accounts at 1 post a day. One account can serve several products; they then share its daily posts.</p>
       <div className="scroll"><table>
-        <thead><tr><th>Channel</th><th>On</th><th>Posts / day</th><th>Auto-publish</th><th>Zernio account</th><th>Status</th></tr></thead>
+        <thead><tr><th>Channel</th><th>On</th><th>Posts / day</th><th>Auto-publish</th><th>Account</th><th>Status</th></tr></thead>
         <tbody>
           {channels.map(c => (
             <tr key={c.id}>
-              <td>{c.platform}<div className="muted">{c.automatable ? 'posts automatically' : 'drafts only'}</div></td>
+              <td>{c.platform}<div className="muted">{isDirect(c.platform) ? 'posts directly · clicks tracked, no views' : c.automatable ? 'posts automatically' : 'drafts only'}</div></td>
               <td>
                 <form action={toggleChannel}>
                   <input type="hidden" name="id" value={c.id} /><input type="hidden" name="enabled" value={String(!c.enabled)} />
@@ -44,7 +46,25 @@ export async function ChannelsSection({ p }: { p: Record<string, any> }) {
                 ) : <span className="muted">—</span>}
               </td>
               <td>
-                {c.automatable ? (<>
+                {c.platform === 'telegram' ? (
+                  <form action={setDirectTarget} className="stack">
+                    <input type="hidden" name="id" value={c.id} />
+                    <div className="row">
+                      <input name="target" defaultValue={c.target ?? ''} placeholder="@your_channel" aria-label="Telegram channel" style={{ width: 170 }} />
+                      <button type="submit" className="ghost">{c.target ? 'Save' : 'Connect'}</button>
+                    </div>
+                    <span className="muted">{bot ? <>Add <b>@{bot}</b> as an admin of the channel with &ldquo;Post messages&rdquo;, then enter the channel&apos;s @name.</> : 'Set TELEGRAM_BOT_TOKEN in Vercel first (see SETUP.md).'}</span>
+                  </form>
+                ) : c.platform === 'discord' ? (
+                  <form action={setDirectTarget} className="stack">
+                    <input type="hidden" name="id" value={c.id} />
+                    <div className="row">
+                      <input name="target" type="url" placeholder={c.target ? `Connected (${maskWebhook(c.target)}). Paste a new URL to change` : 'https://discord.com/api/webhooks/…'} aria-label="Discord webhook URL" style={{ width: 260 }} />
+                      <button type="submit" className="ghost">{c.target ? 'Change' : 'Connect'}</button>
+                    </div>
+                    <span className="muted">In Discord: channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL.</span>
+                  </form>
+                ) : c.automatable ? (<>
                   <form action={setChannelAccount} className="row">
                     <input type="hidden" name="id" value={c.id} />
                     <select name="account" defaultValue={c.zernio_account_id ?? ''} aria-label={`Zernio account for ${c.platform}`}>
@@ -60,7 +80,11 @@ export async function ChannelsSection({ p }: { p: Record<string, any> }) {
                   {c.shared_with && <div className="muted">Also posts for {c.shared_with}. They share this account&apos;s daily posts.</div>}
                 </>) : <span className="muted">—</span>}
               </td>
-              <td>{c.needs_reconnect ? <span className="s-failed">reconnect in Zernio</span> : c.enabled && c.automatable && !c.zernio_account_id ? <span className="s-waiting">pick an account</span> : <span className="muted">ok</span>}</td>
+              <td>{c.needs_reconnect
+                ? <span className="s-failed">{isDirect(c.platform) ? 'last post failed: check the bot or webhook' : 'reconnect in Zernio'}</span>
+                : c.enabled && c.automatable && !(isDirect(c.platform) ? c.target : c.zernio_account_id)
+                  ? <span className="s-waiting">{isDirect(c.platform) ? 'connect it' : 'pick an account'}</span>
+                  : <span className="muted">ok</span>}</td>
             </tr>
           ))}
         </tbody>

@@ -10,8 +10,9 @@ import { dispatchAgent } from '@/lib/github'
 import { requestRun } from '@/lib/runs'
 import { retryPost } from '@/lib/retry'
 import { parseGoals, repoStars, saveSnapshot } from '@/lib/goals'
+import { checkDiscord, checkTelegram } from '@/lib/direct'
 
-const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok', 'linkedin', 'bluesky']
+const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok', 'linkedin', 'bluesky', 'telegram', 'discord']
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
@@ -126,6 +127,20 @@ export async function setChannelAccount(f: FormData) {
   await requireOwner()
   await sql`update channels set zernio_account_id = ${s(f, 'account') || null}, needs_reconnect = false where id = ${Number(s(f, 'id'))}`
   revalidatePath('/')
+}
+
+/** Connect a Telegram channel (our bot must be its admin) or a Discord webhook. Checked before saving, so a saved channel can post. */
+export async function setDirectTarget(f: FormData) {
+  await requireOwner()
+  const id = Number(s(f, 'id'))
+  const [c] = await sql`select platform from channels where id = ${id}`
+  if (!c || !['telegram', 'discord'].includes(c.platform)) back('Unknown channel', 'channels')
+  const target = s(f, 'target')
+  const problem = c.platform === 'telegram' ? await checkTelegram(target) : await checkDiscord(target)
+  if (problem) back(`${c.platform}: ${problem}`, 'channels')
+  await sql`update channels set target = ${target}, needs_reconnect = false where id = ${id}`
+  revalidatePath('/')
+  back(`${c.platform === 'telegram' ? 'Telegram' : 'Discord'} connected. Waiting posts for it go out on the next run.`, 'channels')
 }
 
 export async function resolveWaiting(f: FormData) {

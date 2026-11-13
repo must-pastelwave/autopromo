@@ -4,7 +4,7 @@ Give it your product's web page. It promotes the product on social media for you
 
 AI agents (Claude) read your site, plan a 4-week campaign, write the posts, check each other's work, and publish through [Zernio](https://zernio.com). Then they look at what brought clicks and sign-ups and adjust the next plan.
 
-Posts it makes: short videos for TikTok and YouTube Shorts, Instagram carousels, Threads posts.
+Posts it makes: short videos for TikTok and YouTube Shorts, Instagram carousels, Threads and LinkedIn posts (through Zernio), and Telegram and Discord posts (sent directly, no Zernio account needed).
 
 ## How it works
 

@@ -34,6 +34,9 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
   if (b.kind === 'video' && (slides.length < 3 || slides.length > 8)) return 'a video needs 3–8 slides'
   // X counts a link as 23 characters; the app appends one, so 250 keeps the whole post under 280.
   if (ctx.platform === 'x' && b.caption.length > 250) return 'x: caption max 250 chars (the app adds the link)'
+  // Telegram photo captions stop at 1024 chars and Discord messages at 2000; the app appends the link.
+  if (ctx.platform === 'telegram' && b.caption.length > 900) return 'telegram: caption max 900 chars (the app adds the link)'
+  if (ctx.platform === 'discord' && b.caption.length > 1800) return 'discord: caption max 1800 chars (the app adds the link)'
   if (ctx.platform === 'youtube' && b.caption.split('\n')[0].trim().length > 100) return 'youtube: the first caption line is the title, max 100 chars'
   const facts = b.facts_used ?? []
   if (!Array.isArray(facts) || facts.some((i: unknown) => !Number.isInteger(i) || (i as number) < 0 || (i as number) >= ctx.factCount)) {
