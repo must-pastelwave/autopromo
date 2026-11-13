@@ -1,6 +1,6 @@
 import { sql } from '@/lib/db'
 import { CONNECTABLE, listAccounts, zernioPlatform } from '@/lib/zernio'
-import { isDirect, maskWebhook, telegramBotName } from '@/lib/direct'
+import { discordChannels, discordInvite, isDirect, maskWebhook, telegramBotName, telegramChats } from '@/lib/direct'
 import { setChannelAccount, setDirectTarget, setPerDay, toggleAutoPublish, toggleChannel } from '../actions'
 
 export async function ChannelsSection({ p }: { p: Record<string, any> }) {
@@ -14,6 +14,8 @@ export async function ChannelsSection({ p }: { p: Record<string, any> }) {
   let zernioError = ''
   try { accounts = await listAccounts() } catch (e) { zernioError = e instanceof Error ? e.message : String(e) }
   const bot = channels.some(c => c.platform === 'telegram') ? await telegramBotName() : null
+  const tgChats = bot ? await telegramChats() : []
+  const [dcInvite, dcChannels] = channels.some(c => c.platform === 'discord') ? await Promise.all([discordInvite(), discordChannels()]) : [null, []]
   return (
     <>
       {zernioError && <div className="notice">Can&apos;t reach Zernio ({zernioError}). Check ZERNIO_API_KEY.</div>}
@@ -50,19 +52,25 @@ export async function ChannelsSection({ p }: { p: Record<string, any> }) {
                   <form action={setDirectTarget} className="stack">
                     <input type="hidden" name="id" value={c.id} />
                     <div className="row">
-                      <input name="target" defaultValue={c.target ?? ''} placeholder="@your_channel" aria-label="Telegram channel" style={{ width: 170 }} />
+                      <input name="target" list="tg-chats" defaultValue={c.target ?? ''} placeholder="@channel or pick one" aria-label="Telegram channel or group" style={{ width: 210 }} />
+                      <datalist id="tg-chats">{tgChats.map(t => <option key={t.id} value={t.id}>{`${t.title} (${t.type})`}</option>)}</datalist>
                       <button type="submit" className="ghost">{c.target ? 'Save' : 'Connect'}</button>
                     </div>
-                    <span className="muted">{bot ? <>Add <b>@{bot}</b> as an admin of the channel with &ldquo;Post messages&rdquo;, then enter the channel&apos;s @name.</> : 'Set TELEGRAM_BOT_TOKEN in Vercel first (see SETUP.md).'}</span>
+                    <span className="muted">{bot
+                      ? <>Add <b>@{bot}</b> to your group (or as an admin of your channel), then pick it here.{tgChats.length ? ` Found: ${tgChats.map(t => t.title).join(', ')}.` : ' Not in the list? Remove the bot and add it again; Telegram only remembers the last 24 hours.'}</>
+                      : 'Set TELEGRAM_BOT_TOKEN in Vercel first (see SETUP.md).'}</span>
                   </form>
                 ) : c.platform === 'discord' ? (
                   <form action={setDirectTarget} className="stack">
                     <input type="hidden" name="id" value={c.id} />
                     <div className="row">
-                      <input name="target" type="url" placeholder={c.target ? `Connected (${maskWebhook(c.target)}). Paste a new URL to change` : 'https://discord.com/api/webhooks/…'} aria-label="Discord webhook URL" style={{ width: 260 }} />
+                      <input name="target" list="dc-channels" placeholder={c.target ? `Connected (${maskWebhook(c.target)}). Pick another to change` : 'Pick a channel or paste a webhook URL'} aria-label="Discord channel or webhook URL" style={{ width: 260 }} />
+                      <datalist id="dc-channels">{dcChannels.map(d => <option key={d.id} value={d.id}>{d.title}</option>)}</datalist>
                       <button type="submit" className="ghost">{c.target ? 'Change' : 'Connect'}</button>
                     </div>
-                    <span className="muted">In Discord: channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL.</span>
+                    <span className="muted">{dcInvite
+                      ? <><a href={dcInvite} target="_blank" rel="noreferrer">Add the autopromo bot</a> to your server, then pick the channel here.{dcChannels.length ? '' : ' No channels yet: add the bot first, then reload.'}</>
+                      : 'Set DISCORD_BOT_TOKEN in Vercel to pick channels from a list (see SETUP.md), or paste a webhook URL: channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL.'}</span>
                   </form>
                 ) : c.automatable ? (<>
                   <form action={setChannelAccount} className="row">

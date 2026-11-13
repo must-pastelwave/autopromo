@@ -10,7 +10,7 @@ import { dispatchAgent } from '@/lib/github'
 import { requestRun } from '@/lib/runs'
 import { retryPost } from '@/lib/retry'
 import { parseGoals, repoStars, saveSnapshot } from '@/lib/goals'
-import { checkDiscord, checkTelegram } from '@/lib/direct'
+import { checkDiscord, checkTelegram, discordWebhookFor, isDiscordChannelId } from '@/lib/direct'
 
 const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok', 'linkedin', 'bluesky', 'telegram', 'discord']
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
@@ -135,7 +135,9 @@ export async function setDirectTarget(f: FormData) {
   const id = Number(s(f, 'id'))
   const [c] = await sql`select platform from channels where id = ${id}`
   if (!c || !['telegram', 'discord'].includes(c.platform)) back('Unknown channel', 'channels')
-  const target = s(f, 'target')
+  let target = s(f, 'target')
+  // A Discord channel picked from the list: the bot makes the webhook, so the owner never copies a URL.
+  if (c.platform === 'discord' && isDiscordChannelId(target)) target = await discordWebhookFor(target).catch(e => back(`discord: ${e.message}`, 'channels'))
   const problem = c.platform === 'telegram' ? await checkTelegram(target) : await checkDiscord(target)
   if (problem) back(`${c.platform}: ${problem}`, 'channels')
   await sql`update channels set target = ${target}, needs_reconnect = false where id = ${id}`
