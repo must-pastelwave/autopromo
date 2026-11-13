@@ -14,7 +14,9 @@ An example of a product as configured. Nothing here is built into the app: a new
 | Tone notes | 정중하고 차분하게, 정보 위주로. 보증금은 항상 "3년 만기 후 정산을 거쳐 반환" 조건과 함께. 객실 1박 요금처럼 매일 바뀌는 가격은 쓰지 않아요. |
 | Extra banned words | 수익, 원금 보장, 공짜, 무료 숙박, 무조건 |
 
-Channels: Instagram + Threads on, **Approve first**. Everything else off.
+Channels: YouTube (Shorts), **paused** for now (as of 2026-11-12). Earlier this doc said Instagram + Threads; YouTube is current.
+
+Goal: sign-ups = the free consultation form (`#contact`). Set the 1-month and 3-month numbers in Settings → Goal.
 
 ## Change needed on stay2u.com
 

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { sql } from '@/lib/db'
 import { currentProduct } from '@/lib/current'
 import { planWithItems } from '@/lib/plans'
+import { TARGET_KEYS, TARGET_LABEL } from '@/lib/scorecard'
 import { journeyFor } from '@/lib/journey'
 import { Page } from '../sections/frame'
 import { RunStatus } from '../journey/run-status'
@@ -15,6 +16,9 @@ const list = (v: unknown): any[] => (Array.isArray(v) ? v : [])
 function Strategy({ s }: { s: Record<string, any> }) {
   return (
     <div className="card strategy">
+      <p><b>Goal</b> {s.goal}</p>
+      {s.targets && <p><b>Targets for these 4 weeks</b> {TARGET_KEYS.filter(k => typeof s.targets[k] === 'number').map(k => `${s.targets[k].toLocaleString('en')} ${TARGET_LABEL[k]}`).join(' · ')}</p>}
+      {s.targets_note && <p className="muted">{s.targets_note}</p>}
       {s.positioning && <div style={{ marginBottom: 10 }}>
         <b>Positioning</b>
         <ul>
@@ -26,8 +30,6 @@ function Strategy({ s }: { s: Record<string, any> }) {
         </ul>
       </div>}
       {s.funnel_focus && <p><b>Funnel focus</b> {typeof s.funnel_focus === 'string' ? s.funnel_focus : JSON.stringify(s.funnel_focus)}</p>}
-      <p><b>Goal</b> {s.goal}</p>
-      {s.targets && <p><b>Targets for these 4 weeks</b> {['seen', 'engaged', 'clicks', 'followers'].filter(k => typeof s.targets[k] === 'number').map(k => `${s.targets[k].toLocaleString('en')} ${({ seen: 'seen', engaged: 'engagements', clicks: 'link clicks', followers: 'followers gained' } as Record<string, string>)[k]}`).join(' · ')}</p>}
       <p><b>Call to action</b> {s.cta}</p>
       {s.audience && <p><b>Audience</b> {s.audience}</p>}
       {list(s.channels).length > 0 && <><b>Channels</b><ul>{list(s.channels).map((c, i) => <li key={i}><b>{c.platform}</b>{c.per_week ? ` · ${c.per_week}/week` : ''}: {c.why}</li>)}</ul></>}

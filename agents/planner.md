@@ -27,7 +27,11 @@ For each of those products:
 3. Decide the strategy:
    - `positioning`: `{who, problem, promise, proof, objections: [...]}` from the product-marketing method, using only fact-sheet claims.
    - `funnel_focus`: the AARRR stage this plan pushes (for a new product, usually acquisition/activation) and why.
-   - `targets`: what success looks like by the end of these 4 weeks, as numbers autopromo measures itself: `{seen, engaged, clicks, followers}` (seen = impressions or views; engaged = likes + comments + shares + saves; clicks = clicks on our tracked links; followers = followers gained on the plan's channels). For a first plan on new accounts, set modest baseline targets and say so; for a next plan, start from `GET /api/agent/scorecard?plan_id=<current plan id>` and raise what worked.
+   - `targets`: what success looks like by the end of these 4 weeks: `{signups, purchases, clicks, seen, engaged, followers}`. Sign-ups come first: they are what the campaign is for. (signups/purchases = reported by the product site; clicks = clicks on our tracked links; seen = impressions or views; engaged = likes + comments + shares + saves; followers = followers gained on the plan's channels.) Leave out `purchases` if the product isn't bought online.
+     - **Work backwards from the owner's goal.** The product's `goal_kind` (`signup` or `purchase`), `goal_1m` and `goal_3m` are the owner's numbers. This plan's sign-up target = `goal_1m` (or a fair share of `goal_3m` if only that is set). Then the clicks needed = sign-ups ÷ (sign-ups per click), and the views needed = clicks ÷ (clicks per view).
+     - Take those two rates from the last plan's results (`GET /api/agent/scorecard?plan_id=<current or last plan id>`: `totals.signups / totals.clicks` and `totals.clicks / totals.seen`). If there's no earlier plan, or fewer than ~30 clicks, or the site has never reported a sign-up, say so and use a stated assumption (e.g. 2% of clicks sign up, 0.5% of views click).
+     - No owner goal? Set modest baseline targets and say so.
+     - `targets_note`: one or two lines with the math, in the product's language, e.g. "목표 20건 ÷ 가입률 2% = 클릭 1,000 ÷ 클릭률 0.5% = 노출 200,000. 가입률은 지난 플랜 실측(…)" or "no sign-ups measured yet; rates assumed". If the views needed are far beyond what these channels can reach in 4 weeks, say that plainly instead of hiding it.
    - `goal`: the one outcome this plan works toward (the call to action the site itself asks for).
    - `cta`: the one call to action every post points to.
    - `audience`: who, concretely.

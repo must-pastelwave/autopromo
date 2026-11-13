@@ -14,6 +14,7 @@ const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok
 const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
+const goal = (f: FormData, k: string) => { const n = Math.round(Number(s(f, k))); return n > 0 ? n : null }
 const back = (msg: string, section = 'settings'): never => redirect(`/${section}?msg=${encodeURIComponent(msg)}`)
 
 export async function selectProduct(f: FormData) {
@@ -32,6 +33,7 @@ export async function saveProduct(f: FormData) {
   // Blank fields are filled by the researcher on its next run; a blank name starts as the site's host.
   const fields = {
     url, name: name || new URL(url).hostname.replace(/^www\./, ''), audience, language: s(f, 'language'), timezone: tz,
+    goal_kind: s(f, 'goal_kind') === 'purchase' ? 'purchase' : 'signup', goal_1m: goal(f, 'goal_1m'), goal_3m: goal(f, 'goal_3m'),
     tone_notes: s(f, 'tone_notes'), banned_words: s(f, 'banned_words').split(/[\n,]/).map(w => w.trim()).filter(Boolean),
   }
   if (id) {
