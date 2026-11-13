@@ -8,7 +8,7 @@ const sinceNote = (since: string | null, from: number) =>
 /** The owner's goals: tracked or not (and why), last 30 days vs the 1-month number, last 90 vs the 3-month one. */
 export async function Goals({ productId }: { productId: number }) {
   const goals = await goalsWithProgress(productId)
-  if (!goals.length) return <p className="muted">No goals yet. <Link href="/settings#goals">Set goals in Settings</Link> so the plan works towards them.</p>
+  if (!goals.length) return <p className="muted">No goals yet. <Link href="/settings?tab=goals">Set goals in Settings</Link> so the plan works towards them.</p>
   return (
     <div className="scroll">
       <table>

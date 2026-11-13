@@ -13,28 +13,52 @@ type Plan = NonNullable<Awaited<ReturnType<typeof planWithItems>>>
 const weekOf = (start: string, day: string) => Math.floor((Date.parse(day) - Date.parse(start)) / (7 * 86400_000)) + 1
 const list = (v: unknown): any[] => (Array.isArray(v) ? v : [])
 
+const fmt = (n: number) => n.toLocaleString('en')
+const STATUS: Record<string, { label: string; tone: string }> = {
+  planned: { label: 'Planned', tone: 'muted' }, written: { label: 'Written', tone: 'ok' }, skipped: { label: 'Skipped', tone: 'bad' },
+}
+
+/** What matters at a glance: goal, call to action, targets, channels, themes. The long reasoning folds away. */
 function Strategy({ s }: { s: Record<string, any> }) {
+  const targets = s.targets ? TARGET_KEYS.filter(k => typeof s.targets[k] === 'number') : []
+  const pos = s.positioning ?? {}
   return (
-    <div className="card strategy">
-      <p><b>Goal</b> {s.goal}</p>
-      {s.targets && <p><b>Targets for these 4 weeks</b> {TARGET_KEYS.filter(k => typeof s.targets[k] === 'number').map(k => `${s.targets[k].toLocaleString('en')} ${TARGET_LABEL[k]}`).join(' · ')}</p>}
+    <div className="card plan-summary">
+      <dl className="facts">
+        <div><dt>Goal</dt><dd>{s.goal}</dd></div>
+        <div><dt>Call to action</dt><dd>{s.cta}</dd></div>
+        {s.audience && <div><dt>Audience</dt><dd>{s.audience}</dd></div>}
+        {list(s.channels).length > 0 && <div><dt>Channels</dt><dd>{list(s.channels).map(c => `${c.platform}${c.per_week ? ` ${c.per_week}/week` : ''}`).join(' · ')}</dd></div>}
+      </dl>
+
+      <h3>Targets for these 4 weeks</h3>
+      {targets.length > 0
+        ? <div className="target-chips">{targets.map(k => <span key={k} className="target"><b>{fmt(s.targets[k])}</b> {TARGET_LABEL[k]}</span>)}</div>
+        : <p className="muted">This plan has no targets. Set goals in <Link href="/settings?tab=goals">Settings → Goals</Link>; the next plan will set targets from them.</p>}
       {s.targets_note && <p className="muted">{s.targets_note}</p>}
-      {s.positioning && <div style={{ marginBottom: 10 }}>
-        <b>Positioning</b>
-        <ul>
-          {s.positioning.who && <li><b>Who</b>: {s.positioning.who}</li>}
-          {s.positioning.problem && <li><b>Problem</b>: {s.positioning.problem}</li>}
-          {s.positioning.promise && <li><b>Promise</b>: {s.positioning.promise}</li>}
-          {s.positioning.proof && <li><b>Proof</b>: {s.positioning.proof}</li>}
-          {list(s.positioning.objections).length > 0 && <li><b>Objections to answer</b>: {list(s.positioning.objections).join(' · ')}</li>}
-        </ul>
-      </div>}
-      {s.funnel_focus && <p><b>Funnel focus</b> {typeof s.funnel_focus === 'string' ? s.funnel_focus : JSON.stringify(s.funnel_focus)}</p>}
-      <p><b>Call to action</b> {s.cta}</p>
-      {s.audience && <p><b>Audience</b> {s.audience}</p>}
-      {list(s.channels).length > 0 && <><b>Channels</b><ul>{list(s.channels).map((c, i) => <li key={i}><b>{c.platform}</b>{c.per_week ? ` · ${c.per_week}/week` : ''}: {c.why}</li>)}</ul></>}
-      {list(s.themes).length > 0 && <><b>Themes</b><ul>{list(s.themes).map((t, i) => <li key={i}><b>{t.name}</b>: {t.why}{t.hook ? <span className="muted"> · hook: {t.hook}</span> : null}</li>)}</ul></>}
-      {list(s.rules).length > 0 && <><b>Rules</b><ul>{list(s.rules).map((r, i) => <li key={i}>{String(r)}</li>)}</ul></>}
+
+      {list(s.themes).length > 0 && <>
+        <h3>Themes</h3>
+        <ul className="themes">{list(s.themes).map((t, i) => <li key={i}><b>{t.name}</b><span className="muted">{t.why}</span></li>)}</ul>
+      </>}
+
+      <details className="help">
+        <summary>Full strategy: positioning, funnel, rules</summary>
+        {(pos.who || pos.problem || pos.promise || pos.proof) && <>
+          <h3>Positioning</h3>
+          <dl className="facts">
+            {pos.who && <div><dt>Who</dt><dd>{pos.who}</dd></div>}
+            {pos.problem && <div><dt>Problem</dt><dd>{pos.problem}</dd></div>}
+            {pos.promise && <div><dt>Promise</dt><dd>{pos.promise}</dd></div>}
+            {pos.proof && <div><dt>Proof</dt><dd>{pos.proof}</dd></div>}
+          </dl>
+        </>}
+        {list(pos.objections).length > 0 && <><h3>Objections to answer</h3><ul>{list(pos.objections).map((o, i) => <li key={i}>{String(o)}</li>)}</ul></>}
+        {s.funnel_focus && <><h3>Funnel focus</h3><p>{typeof s.funnel_focus === 'string' ? s.funnel_focus : JSON.stringify(s.funnel_focus)}</p></>}
+        {list(s.channels).length > 0 && <><h3>Why these channels</h3><ul>{list(s.channels).map((c, i) => <li key={i}><b>{c.platform}</b>: {c.why}</li>)}</ul></>}
+        {list(s.themes).some(t => t.hook) && <><h3>Hooks</h3><ul>{list(s.themes).filter(t => t.hook).map((t, i) => <li key={i}><b>{t.name}</b>: {t.hook}</li>)}</ul></>}
+        {list(s.rules).length > 0 && <><h3>Rules</h3><ul>{list(s.rules).map((r, i) => <li key={i}>{String(r)}</li>)}</ul></>}
+      </details>
     </div>
   )
 }
@@ -42,26 +66,32 @@ function Strategy({ s }: { s: Record<string, any> }) {
 function Calendar({ plan, platforms, editable }: { plan: Plan; platforms: string[]; editable: boolean }) {
   const items = plan.items as any[]
   const weeks = [...new Set(items.map(i => weekOf(plan.starts, i.day)))]
+  const today = new Date().toISOString().slice(0, 10)
   return (
     <>
-      {weeks.map(w => (
-        <div key={w}>
-          <h3>Week {w}</h3>
+      {weeks.map(w => {
+        const inWeek = items.filter(i => weekOf(plan.starts, i.day) === w)
+        const days = inWeek.map(i => i.day as string).sort()
+        const past = days[days.length - 1] < today
+        const done = inWeek.filter(i => i.status !== 'planned').length
+        return (
+        <details key={w} className="week" open={!past}>
+          <summary><b>Week {w}</b><span className="muted">{days[0].slice(5)} → {days[days.length - 1].slice(5)} · {inWeek.length} posts{done ? ` · ${done} written` : ''}</span></summary>
           <div className="scroll"><table className="calendar">
-            <thead><tr><th>Day</th><th>Channel</th><th>Theme</th><th>Topic and angle</th><th>Status</th>{editable && <th></th>}</tr></thead>
+            <thead><tr><th>Day</th><th>Channel</th><th>Topic and angle</th><th>Theme</th><th>Status</th>{editable && <th></th>}</tr></thead>
             <tbody>
-              {items.filter(i => weekOf(plan.starts, i.day) === w).map(i => {
+              {inWeek.map(i => {
                 const open = editable && i.status === 'planned'
                 return (
                   <tr key={i.id}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{i.day.slice(5)}</td>
+                    <td className="day">{i.day.slice(5)}</td>
                     <td>{i.platform}<div className="muted">{i.format}</div></td>
-                    <td>{i.theme}</td>
-                    <td>
-                      <b>{i.topic}</b><div className="muted">{i.angle}</div>
-                      {i.facts?.length > 0 && <div className="muted">uses facts {i.facts.map((n: number) => n + 1).join(', ')}</div>}
+                    <td className="topic">
+                      <b>{i.topic}</b><div className="muted angle">{i.angle}</div>
+                      {i.facts?.length > 0 && <div className="facts-used">Facts {i.facts.map((n: number) => n + 1).join(', ')}</div>}
                     </td>
-                    <td className={`s-${i.status}`}>{i.status}</td>
+                    <td className="theme"><span className="chip">{i.theme}</span></td>
+                    <td><span className={`pill pill-${STATUS[i.status]?.tone ?? 'muted'}`}>{STATUS[i.status]?.label ?? i.status}</span></td>
                     {editable && <td>{open && (
                       <details className="edit">
                         <summary>Edit</summary>
@@ -86,8 +116,9 @@ function Calendar({ plan, platforms, editable }: { plan: Plan; platforms: string
               })}
             </tbody>
           </table></div>
-        </div>
-      ))}
+        </details>
+        )
+      })}
       {editable && (
         <details className="add-item">
           <summary>+ Add an item</summary>
@@ -124,7 +155,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   return (
     <Page title="Plan" msg={msg}>
       <RunStatus productId={p.id} />
-      <p className="muted">Every post comes from a confirmed plan: a 4-week calendar the planner drafts and you agree on. Edit items, ask for changes, then confirm.</p>
+      <p className="lead">Every post comes from a plan you confirm: 4 weeks of posts, drafted by the planner. Check the targets and calendar, edit items or ask for changes, then confirm.</p>
 
       {!p.active && <div className="notice">{p.name} is paused, so its agents don&apos;t run. Switch to another product in the sidebar.</div>}
 
@@ -144,33 +175,47 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
       {draft && (
         <section>
-          <h2>{draft.status === 'revising' ? 'Being revised' : 'Draft for your confirmation'} · {draft.starts} → {draft.ends}{draft.revision > 0 ? ` · revision ${draft.revision}` : ''}</h2>
+          <h2>{draft.status === 'revising' ? 'Next plan: being revised' : 'Next plan: waiting for your OK'} <span className="muted h-sub">{draft.starts} → {draft.ends}{draft.revision > 0 ? ` · revision ${draft.revision}` : ''}</span></h2>
           {draft.status === 'revising'
             ? <div className="notice">The planner is working on your feedback: &ldquo;{draft.feedback}&rdquo;. The new version appears here by itself (see the status above).</div>
             : <>
+              <div className="card decide">
+                <div>
+                  <b>Happy with this plan?</b>
+                  <p className="muted">Confirming starts it: each item is written, checked by the AI reviewer and published on its day.</p>
+                </div>
+                <form action={confirm}><input type="hidden" name="plan" value={draft.id} /><button type="submit">Confirm and start</button></form>
+                <details className="feedback">
+                  <summary>Ask for changes instead</summary>
+                  <form action={revisePlan} className="stack wide">
+                    <input type="hidden" name="plan" value={draft.id} />
+                    <textarea name="feedback" rows={3} placeholder="e.g. No safety notices in week 1; more LinkedIn, less X; start with what the product is" aria-label="Feedback for the planner" />
+                    <div><button className="ghost" type="submit">Send to the planner</button></div>
+                  </form>
+                </details>
+              </div>
               <Strategy s={draft.strategy} />
+              <h2>Calendar</h2>
               <Calendar plan={draft} platforms={platforms} editable />
-              <h3>Ask for changes</h3>
-              <form action={revisePlan} className="stack">
-                <input type="hidden" name="plan" value={draft.id} />
-                <textarea name="feedback" rows={3} placeholder="e.g. No safety notices in week 1; more LinkedIn, less X; start with what the product is" aria-label="Feedback for the planner" />
-                <div className="row"><button className="ghost" type="submit">Ask the planner to revise</button></div>
-              </form>
-              <form action={confirm} style={{ marginTop: 16 }}>
-                <input type="hidden" name="plan" value={draft.id} />
-                <button type="submit">Confirm and start the campaign</button>
-                <span className="muted"> &nbsp;From then on every item is written, checked by the AI reviewer and published on its day.</span>
-              </form>
             </>}
         </section>
       )}
 
-      {current && (
+      {current && !draft && (
         <section>
-          <h2>Running plan · {current.starts} → {current.ends}</h2>
+          <h2>Running plan <span className="muted h-sub">{current.starts} → {current.ends}</span></h2>
           <Strategy s={current.strategy} />
+          <h2>Calendar</h2>
           <Calendar plan={current} platforms={platforms} editable />
         </section>
+      )}
+      {current && draft && (
+        <details className="week running">
+          <summary><b>Running plan</b><span className="muted">{current.starts} → {current.ends} · still running until the next one starts</span></summary>
+          <Strategy s={current.strategy} />
+          <h2>Calendar</h2>
+          <Calendar plan={current} platforms={platforms} editable />
+        </details>
       )}
     </Page>
   )
