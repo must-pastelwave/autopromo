@@ -7,12 +7,14 @@ export function newCode(): string {
   return [...randomBytes(8)].map(b => ALPHABET[b % 36]).join('')
 }
 
-export function trackedUrl(productUrl: string, p: { channel: string; postId: number; topic: string; clickId?: number }): string {
+export function trackedUrl(productUrl: string, p: { channel: string; postId: number; topic: string; code?: string; clickId?: number }): string {
   const u = new URL(productUrl)
   u.searchParams.set('utm_source', p.channel)
   u.searchParams.set('utm_medium', 'social')
   u.searchParams.set('utm_campaign', 'autopromo')
   u.searchParams.set('utm_content', String(p.postId))
+  // src: for sites and apps that already track a source param, so they count autopromo sign-ups with no change.
+  if (p.code) u.searchParams.set('src', `autopromo-${p.code}`)
   // The product site keeps ap_click and sends it back with a sign-up (POST /api/conversions).
   if (p.clickId !== undefined) u.searchParams.set('ap_click', String(p.clickId))
   return u.toString()

@@ -24,6 +24,14 @@ export function ProductForm({ p }: { p?: Record<string, any> }) {
       )}
       <label>Tone notes and cautions<textarea name="tone_notes" rows={3} defaultValue={p?.tone_notes} placeholder="How posts should sound, and anything they must always say or never say" /></label>
       <label>Extra banned words (one per line)<textarea name="banned_words" rows={3} defaultValue={p?.banned_words?.join('\n')} /></label>
+      <fieldset className="choices-field">
+        <legend>Goal (optional): the planner works backwards from it</legend>
+        <div className="row">
+          <label>Count<select name="goal_kind" defaultValue={p?.goal_kind ?? 'signup'}><option value="signup">Sign-ups</option><option value="purchase">Purchases</option></select></label>
+          <label>In 1 month<input name="goal_1m" type="number" min={1} defaultValue={p?.goal_1m ?? ''} size={6} /></label>
+          <label>In 3 months<input name="goal_3m" type="number" min={1} defaultValue={p?.goal_3m ?? ''} size={6} /></label>
+        </div>
+      </fieldset>
       <button type="submit">{p ? 'Save' : 'Add product'}</button>
     </form>
   )

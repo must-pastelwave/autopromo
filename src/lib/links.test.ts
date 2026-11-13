@@ -15,6 +15,9 @@ test('real phone', () =>
 test('code shape', () => expect(newCode()).toMatch(/^[a-z0-9]{8}$/))
 test('codes differ', () => expect(new Set(Array.from({ length: 200 }, newCode)).size).toBe(200))
 
+test('src carries the link code', () =>
+  expect(new URL(trackedUrl('https://x.co/', { channel: 'x', postId: 7, topic: 't', code: 'ab12cd34' })).searchParams.get('src')).toBe('autopromo-ab12cd34'))
+
 test('click id is passed on and the #fragment stays last', () =>
   expect(trackedUrl('https://stay2u.com/#membership', { channel: 'instagram', postId: 7, topic: 'x', clickId: 9 }))
     .toBe('https://stay2u.com/?utm_source=instagram&utm_medium=social&utm_campaign=autopromo&utm_content=7&ap_click=9#membership'))

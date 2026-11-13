@@ -19,6 +19,7 @@ test('a person: click counted, redirect carries utm + ap_click', async () => {
   expect(to.origin + to.pathname).toBe('https://l2u.co.kr/')
   expect(to.searchParams.get('ap_click')).toBe(String(click.id))
   expect(to.searchParams.get('utm_source')).toBe('threads')
+  expect(to.searchParams.get('src')).toBe(`autopromo-${p.link_code}`)
 })
 
 test('a bot: redirected, not counted, no click id', async () => {

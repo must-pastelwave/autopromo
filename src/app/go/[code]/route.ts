@@ -13,5 +13,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ code: st
     const [click] = await sql`insert into clicks (post_id) values (${row.id}) returning id`
     clickId = Number(click.id)
   }
-  return Response.redirect(trackedUrl(row.url, { channel: row.platform, postId: row.id, topic: row.topic, clickId }), 302)
+  return Response.redirect(trackedUrl(row.url, { channel: row.platform, postId: row.id, topic: row.topic, code, clickId }), 302)
 }

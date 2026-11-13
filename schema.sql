@@ -95,3 +95,7 @@ create table if not exists follower_counts (
 create table if not exists sync_state (key text primary key, at timestamptz not null, note text not null default '');
 -- Owner asked to write a plan item again (after its post was blocked): bypasses the writer cool-down once.
 alter table plan_items add column if not exists retry_at timestamptz;
+-- The owner's goal per product (sign-ups or purchases, in 1 and 3 months); the planner works backwards from it.
+alter table products add column if not exists goal_kind text not null default 'signup';
+alter table products add column if not exists goal_1m int;
+alter table products add column if not exists goal_3m int;
