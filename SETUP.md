@@ -34,6 +34,15 @@ Never sign up or log in to social accounts with scripts or automated browsers. T
 
 **You don't need the business's own accounts.** Any account you control works. The best start is **TikTok + YouTube**: both show videos to people by interest, so a brand-new account with no followers still gets seen. Make the TikTok account a **business account** (needed for a link in the bio), and don't mark the YouTube channel as made for kids. Zernio's first 2 accounts are free.
 
+### Telegram and Discord (no Zernio needed)
+
+These post directly, so they don't use Zernio accounts. Clicks on their links are tracked like everywhere else; Telegram and Discord don't report views or followers.
+
+- **Telegram**: in Telegram, message @BotFather → `/newbot`, and copy the token into `TELEGRAM_BOT_TOKEN` in Vercel (then redeploy). One bot serves every channel. Add the bot to your Telegram channel as an **admin** with "Post messages", then enter the channel's `@name` in Channels → telegram.
+- **Discord**: in your server, channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL, and paste it in Channels → discord. Keep the URL private: anyone with it can post there.
+
+Both are checked when you save: the app confirms the bot can post, or that the webhook exists.
+
 ## 3. Add your product
 
 In the dashboard → **Settings → Add a product**: just the product page URL (where tracked links should land). Name, target users, language, tone and banned words are optional: the researcher fills any you leave blank from the site the next morning (05:00 KST), then writing starts the morning after. Whatever you type is never overwritten. Then **Channels**: switch on the channels you'll use and press **Connect** on each. You log in to TikTok, YouTube and so on yourself, and the account links back automatically. One account can serve several products; they then share its daily posts. Leave **Auto-publish off** for now ("Approve first").

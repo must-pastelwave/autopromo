@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { sql } from '@/lib/db'
 import { postState, type Tab } from '@/lib/status'
+import { isDirect } from '@/lib/direct'
 import { retryPostAction } from '../actions'
 
 const TABS: [Tab | 'all', string][] = [['all', 'All'], ['needs-you', 'Needs you'], ['upcoming', 'Upcoming'], ['published', 'Published'], ['blocked', 'Blocked'], ['set-aside', 'Set aside']]
@@ -42,7 +43,7 @@ export async function PostsSection({ p, status: asked }: { p: Record<string, any
                 <span><span className="chip">{x.platform}</span></span>
                 <span className="what"><b>{x.topic}</b><span className="muted">{firstLine}</span></span>
                 <span><span className={`pill pill-${x.state.tone}`}>{x.state.label}</span></span>
-                <span className="results">{out ? <>{num(x.seen)} seen · {num(x.engaged)} engaged · {x.clicks} clicks</> : <span className="muted">—</span>}</span>
+                <span className="results">{out ? (isDirect(x.platform) ? <>{x.clicks} clicks <span className="muted">· no views on {x.platform}</span></> : <>{num(x.seen)} seen · {num(x.engaged)} engaged · {x.clicks} clicks</>) : <span className="muted">—</span>}</span>
                 <span className="chev" aria-hidden>›</span>
               </summary>
               <div className="post-detail">

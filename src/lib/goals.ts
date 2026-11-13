@@ -118,7 +118,7 @@ export async function measure(productId: number, metric: Metric, source: string,
 export async function tracking(productId: number, metric: Metric, source: string): Promise<{ ok: boolean; why: string }> {
   switch (metric) {
     case 'clicks':
-      return { ok: true, why: 'Counted by autopromo on every tracked link.' }
+      return { ok: true, why: 'Counted by autopromo on every tracked link, on every channel (Telegram and Discord included).' }
     case 'signups':
     case 'purchases': {
       const kind = metric === 'signups' ? 'signup' : 'purchase'
@@ -133,12 +133,12 @@ export async function tracking(productId: number, metric: Metric, source: string
       if (!c.n) return { ok: false, why: 'Not tracked: no connected account yet. Connect one in Channels.' }
       const [s] = await sql`select note from sync_state where key = 'metrics'`
       if (s?.note?.startsWith('analytics not available')) return { ok: false, why: "Not tracked: this Zernio plan doesn't include analytics." }
-      return { ok: true, why: 'Read from each platform through Zernio, hourly.' }
+      return { ok: true, why: `Read from each platform through Zernio, hourly.${await directNote(productId)}` }
     }
     case 'followers': {
       const [r] = await sql`select count(*)::int as n from follower_counts fc join channels c on c.id = fc.channel_id where c.product_id = ${productId} and c.enabled`
       return r.n > 0
-        ? { ok: true, why: 'Follower counts read through Zernio, hourly.' }
+        ? { ok: true, why: `Follower counts read through Zernio, hourly.${await directNote(productId)}` }
         : { ok: false, why: 'Not tracked yet: no follower counts. Connect an account in Channels; counts arrive with the hourly sync.' }
     }
     case 'github_stars': {
@@ -148,6 +148,12 @@ export async function tracking(productId: number, metric: Metric, source: string
         : { ok: false, why: `Not tracked yet: github.com/${source} hasn't been read. Check the repo name.` }
     }
   }
+}
+
+/** Telegram and Discord report no views or followers; say so where those goals are shown. */
+async function directNote(productId: number) {
+  const rows = await sql`select platform from channels where product_id = ${productId} and enabled and target is not null order by platform`
+  return rows.length ? ` ${rows.map(r => r.platform[0].toUpperCase() + r.platform.slice(1)).join(' and ')} ${rows.length === 1 ? "doesn't" : "don't"} report this; only their clicks count.` : ''
 }
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400_000).toISOString().slice(0, 10)

@@ -19,7 +19,7 @@ export async function journeyFor(productId: number): Promise<Journey | null> {
   const [p] = await sql`select jsonb_array_length(fact_sheet) as n from products where id = ${productId}`
   if (!p) return null
   const channels = (await sql`
-    select id, platform, enabled, automatable, zernio_account_id is not null as connected
+    select id, platform, enabled, automatable, (zernio_account_id is not null or target is not null) as connected
     from channels where product_id = ${productId} order by id`) as unknown as Journey['channels']
   const [draft] = await sql`
     select id, status, to_char(starts_on, 'YYYY-MM-DD') as starts from plans

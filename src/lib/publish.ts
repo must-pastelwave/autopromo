@@ -3,6 +3,7 @@ import { nextSlot, startOfDay } from './slots'
 import { createPost, getPost, uploadMedia } from './zernio'
 import { renderVideo } from './video'
 import { trackUse } from './photos'
+import { isDirect, sendDirect, DIRECT } from './direct'
 
 // Shown where captions can't hold a clickable link. Keyed by the product's language.
 const BIO_NOTE: Record<string, string> = { ko: '프로필 링크에서 확인하세요', en: 'Link in our profile' }
@@ -50,7 +51,7 @@ export async function renderPostVideo(postId: number, slideCount: number, revisi
 /** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
 export async function publish(postId: number, opts: { retry?: boolean; approved?: boolean } = {}): Promise<void> {
   const [row] = await sql`
-    select p.*, c.platform, c.enabled, c.automatable, c.auto_publish, c.zernio_account_id, c.started_at, c.per_day, pr.timezone, pr.language, to_char(i.day, 'YYYY-MM-DD') as plan_day
+    select p.*, c.platform, c.enabled, c.automatable, c.auto_publish, c.zernio_account_id, c.target, c.started_at, c.per_day, pr.timezone, pr.language, to_char(i.day, 'YYYY-MM-DD') as plan_day
     from posts p join channels c on c.id = p.channel_id join products pr on pr.id = p.product_id
     left join plan_items i on i.id = p.plan_item_id
     where p.id = ${postId}`
@@ -65,7 +66,8 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
     await sql`update posts set status = 'failed', error = ${opts.retry ? `retried: ${msg}` : msg} where id = ${postId}`
     if (NEEDS_RECONNECT.test(msg)) await sql`update channels set needs_reconnect = true where id = ${row.channel_id}`
   }
-  if (!row.zernio_account_id) {
+  const direct = isDirect(row.platform)
+  if (direct ? !row.target : !row.zernio_account_id) {
     // Not connected yet: the post waits and goes out once the owner connects the account (see runMaintenance).
     await sql`update posts set status = 'waiting', error = ${`connect your ${row.platform} account to post this`} where id = ${postId}`
     return
@@ -87,6 +89,14 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
     startedAt: row.started_at, taken: taken.map(t => t.scheduled_for),
   })
   const slides: { photo_track?: string }[] = row.slides ?? []
+  if (direct) {
+    // Telegram and Discord can't schedule: the post waits here and runMaintenance sends it when its slot comes.
+    // A retry keeps "retried:" in error so a second failure is final (see sendDueDirect).
+    await sql`update posts set status = 'scheduled', scheduled_for = ${when}, error = ${opts.retry ? `retried: ${row.error ?? ''}` : null} where id = ${postId}`
+    await sql`update channels set needs_reconnect = false where id = ${row.channel_id}`
+    await Promise.all(slides.map(s => trackUse(s.photo_track)))
+    return
+  }
   const slideUrls = slideUrlsFor(postId, slides.length, row.revision)
   const isVideo = row.kind === 'video'
   try {
@@ -119,7 +129,7 @@ export async function runMaintenance(): Promise<void> {
   // Posts that waited only for an account connection go out once it's connected.
   const connected = await sql`
     select p.id from posts p join channels c on c.id = p.channel_id
-    where p.status = 'waiting' and p.error like 'connect your % account to post this' and c.zernio_account_id is not null and c.enabled`
+    where p.status = 'waiting' and p.error like 'connect your % account to post this' and (c.zernio_account_id is not null or c.target is not null) and c.enabled`
   for (const c of connected) await publish(c.id, { approved: true })
 
   // Passed review but publish never ran to the end (a crash or timeout): try again.
@@ -128,9 +138,11 @@ export async function runMaintenance(): Promise<void> {
 
   const retry = await sql`
     select id from posts where status = 'failed'
-      and error is not null and error not like 'retried:%' and error !~ '^zernio 4[0-9][0-9]'`
+      and error is not null and error not like 'retried:%' and error !~ '^(zernio|telegram|discord) 4[0-9][0-9]'`
   // Only posts that already got past approval can be 'failed', so the retry counts as approved.
   for (const r of retry) await publish(r.id, { retry: true, approved: true })
+
+  await sendDueDirect()
 
   const due = await sql`
     select id, zernio_post_id from posts
@@ -144,6 +156,38 @@ export async function runMaintenance(): Promise<void> {
       }
     } catch {
       // Zernio unreachable: try again next run.
+    }
+  }
+}
+
+/** Send Telegram and Discord posts whose slot has come. Each post is sent at most once. */
+export async function sendDueDirect(): Promise<void> {
+  // A channel switched Off is the kill switch: its scheduled posts go back to waiting, unsent.
+  await sql`
+    update posts p set status = 'waiting' from channels c
+    where c.id = p.channel_id and p.status = 'scheduled' and c.platform = any(${DIRECT}) and not c.enabled`
+  const due = await sql`
+    select p.id, p.caption, p.slides, p.revision, p.link_code, p.error, p.channel_id, c.platform, c.target, pr.language
+    from posts p join channels c on c.id = p.channel_id join products pr on pr.id = p.product_id
+    where p.status = 'scheduled' and c.platform = any(${DIRECT}) and c.enabled and c.target is not null and p.scheduled_for <= now()
+    order by p.scheduled_for`
+  for (const d of due) {
+    // Claim first, so two overlapping cron runs can't both send it.
+    // ponytail: a crash between claim and send leaves it marked published but unsent; fine at this volume.
+    const [claimed] = await sql`update posts set status = 'published' where id = ${d.id} and status = 'scheduled' returning id`
+    if (!claimed) continue
+    const slides: unknown[] = d.slides ?? []
+    try {
+      await sendDirect(d.platform, d.target, captionFor(d.platform, d.caption, d.link_code, d.language),
+        slides.length === 1 ? slideUrlsFor(d.id, 1, d.revision)[0] : undefined)
+      await sql`update posts set error = null where id = ${d.id}`
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      const retried = typeof d.error === 'string' && d.error.startsWith('retried:')
+      await sql`update posts set status = 'failed', error = ${retried ? `retried: ${msg}` : msg} where id = ${d.id}`
+      if (NEEDS_RECONNECT.test(msg) || /not found|admin|kicked|webhook/i.test(msg)) {
+        await sql`update channels set needs_reconnect = true where id = ${d.channel_id}`
+      }
     }
   }
 }

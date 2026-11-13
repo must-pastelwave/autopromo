@@ -114,3 +114,8 @@ do $$ begin
     alter table products drop column goal_kind, drop column goal_1m, drop column goal_3m;
   end if;
 end $$;
+-- Channels posted to directly, without Zernio. target: the Telegram chat ("@channel" or its id) or the Discord webhook URL.
+alter table channels add column if not exists target text;
+insert into channels (product_id, platform, automatable)
+  select p.id, x.platform, true from products p cross join (values ('telegram'), ('discord')) x(platform)
+  where not exists (select 1 from channels c where c.product_id = p.id and c.platform = x.platform);
