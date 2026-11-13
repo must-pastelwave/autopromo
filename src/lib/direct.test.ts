@@ -2,7 +2,7 @@ import { test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { sql } from './db'
 import { publish, runMaintenance } from './publish'
 import { resetDb, seed, insertPost } from '@/test/db'
-import { checkDiscord, checkTelegram, sendDirect, validDiscordWebhook } from './direct'
+import { checkDiscord, checkTelegram, discordChannels, discordInvite, discordWebhookFor, sendDirect, telegramChats, validDiscordWebhook } from './direct'
 import { GET as go } from '@/app/go/[code]/route'
 
 const HOOK = 'https://discord.com/api/webhooks/123456789012/abcdefghijklmnopqrstuvwxyz_-0123'
@@ -125,10 +125,19 @@ test('channel switched Off after scheduling → the post goes back to waiting, u
 })
 
 test('connect checks: telegram bot must be an admin that can post; discord URL must be a real Discord webhook', async () => {
-  stub(() => Response.json({ ok: true, result: { status: 'administrator', can_post_messages: true } }))
+  const tgChat = (type: string, member: object) => stub(url => Response.json({ ok: true, result: url.endsWith('/getChat') ? { type } : member }))
+  tgChat('channel', { status: 'administrator', can_post_messages: true })
   expect(await checkTelegram('@mpc_news')).toBeNull()
-  stub(() => Response.json({ ok: true, result: { status: 'member' } }))
-  expect(await checkTelegram('@mpc_news')).toMatch(/not an admin/)
+  tgChat('channel', { status: 'member' })
+  expect(await checkTelegram('@mpc_news')).toMatch(/must be an admin/)
+  tgChat('supergroup', { status: 'member' })
+  expect(await checkTelegram('-1001234567890')).toBeNull()   // groups: a plain member can post
+  tgChat('group', { status: 'left' })
+  expect(await checkTelegram('-4123456789')).toMatch(/not in this group/)
+  stub(() => Response.json({ ok: false, description: 'Bad Request: group chat was upgraded to a supergroup chat', parameters: { migrate_to_chat_id: -1009876543210 } }, { status: 400 }))
+  expect(await checkTelegram('-4123456789')).toMatch(/new id: -1009876543210/)
+  stub(() => Response.json({ ok: false, description: 'Bad Request: chat not found' }, { status: 400 }))
+  expect(await checkTelegram('4123456789')).toMatch(/can't find that chat \(Bad Request: chat not found\)/)
   expect(await checkTelegram('mpc news')).toMatch(/@name/)
 
   expect(validDiscordWebhook(HOOK)).toBe(true)
@@ -140,4 +149,55 @@ test('connect checks: telegram bot must be an admin that can post; discord URL m
   expect(await checkDiscord(HOOK)).toBeNull()
   expect((f.mock.calls[0] as unknown as Call)[1].method).toBeUndefined()   // a GET: checking never posts
   await expect(sendDirect('discord', 'https://evil.example/hook', 'x')).rejects.toThrow(/not a Discord webhook/)
+})
+
+test('telegramChats lists the groups and channels the bot was added to, not private chats', async () => {
+  stub(() => Response.json({ ok: true, result: [
+    { my_chat_member: { chat: { id: -4123456789, title: 'MPC community', type: 'group' } } },
+    { channel_post: { chat: { id: -1001111111111, title: 'MPC news', type: 'channel' } } },
+    { message: { chat: { id: 555, type: 'private' } } },
+    { my_chat_member: { chat: { id: -4123456789, title: 'MPC community', type: 'group' } } },
+  ] }))
+  expect(await telegramChats()).toEqual([
+    { id: '-4123456789', title: 'MPC community', type: 'group' },
+    { id: '-1001111111111', title: 'MPC news', type: 'channel' },
+  ])
+})
+
+test('discord bot: lists text and announcement channels by server, makes our webhook once, then reuses it', async () => {
+  process.env.DISCORD_BOT_TOKEN = 'BOTTOKEN'
+  const TOKEN = 'w'.repeat(30)
+  const hooks: object[] = []
+  const f = stub((url, init) => {
+    const path = url.replace('https://discord.com/api/v10', '')
+    if (path === '/applications/@me') return Response.json({ id: '111111' })
+    if (path === '/users/@me/guilds') return Response.json([{ id: '900000', name: 'MPC' }])
+    if (path === '/guilds/900000/channels') return Response.json([
+      { id: '300000', name: 'news', type: 5, position: 2 },
+      { id: '100000', name: 'Lounge', type: 2, position: 0 },   // voice: skipped
+      { id: '200000', name: 'general', type: 0, position: 1 },
+    ])
+    if (path === '/channels/200000/webhooks' && init?.method === 'POST') {
+      const h = { id: '777777', token: TOKEN, application_id: '111111' }; hooks.push(h); return Response.json(h)
+    }
+    if (path === '/channels/200000/webhooks') return Response.json([{ id: '555555', token: 'someone-elses-hook-token', application_id: null }, ...hooks])
+    return Response.json({ message: 'Unknown' }, { status: 404 })
+  })
+  expect(await discordChannels()).toEqual([{ id: '200000', title: 'MPC #general' }, { id: '300000', title: 'MPC #news' }])
+  expect(await discordInvite()).toBe('https://discord.com/oauth2/authorize?client_id=111111&scope=bot&permissions=536871936')
+  expect((f.mock.calls[0] as unknown as Call)[1].headers).toMatchObject({ Authorization: 'Bot BOTTOKEN' })
+
+  const url = await discordWebhookFor('200000')
+  expect(url).toBe(`https://discord.com/api/webhooks/777777/${TOKEN}`)
+  expect(validDiscordWebhook(url)).toBe(true)
+  expect(await discordWebhookFor('200000')).toBe(url)   // reused: no second webhook
+  expect(f.mock.calls.filter(c => (c as unknown as Call)[1]?.method === 'POST')).toHaveLength(1)
+
+  stub(() => Response.json({ message: 'Missing Permissions', code: 50013 }, { status: 403 }))
+  await expect(discordWebhookFor('200000')).rejects.toThrow(/can't make a webhook in that channel \(Missing Permissions\)/)
+  await expect(discordWebhookFor('../users/@me')).rejects.toThrow(/Pick the channel/)
+
+  delete process.env.DISCORD_BOT_TOKEN
+  expect(await discordInvite()).toBeNull()
+  expect(await discordChannels()).toEqual([])
 })

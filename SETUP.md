@@ -38,8 +38,8 @@ Never sign up or log in to social accounts with scripts or automated browsers. T
 
 These post directly, so they don't use Zernio accounts. Clicks on their links are tracked like everywhere else; Telegram and Discord don't report views or followers.
 
-- **Telegram**: in Telegram, message @BotFather → `/newbot`, and copy the token into `TELEGRAM_BOT_TOKEN` in Vercel (then redeploy). One bot serves every channel. Add the bot to your Telegram channel as an **admin** with "Post messages", then enter the channel's `@name` in Channels → telegram.
-- **Discord**: in your server, channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL, and paste it in Channels → discord. Keep the URL private: anyone with it can post there.
+- **Telegram**: in Telegram, message @BotFather → `/newbot`, and copy the token into `TELEGRAM_BOT_TOKEN` in Vercel (then redeploy). One bot serves every channel. Add the bot to your Telegram group (or as an **admin** with "Post messages" to your channel), then pick it in Channels → telegram. The list shows chats the bot joined in the last 24 hours; if yours is missing, remove the bot and add it again.
+- **Discord**: at discord.com/developers/applications → New Application → Bot → Reset Token, and copy the token into `DISCORD_BOT_TOKEN` in Vercel (then redeploy). One bot serves every server. In Channels → discord, press **Add the autopromo bot**, pick your server, then pick the channel from the list. The bot makes a webhook in that channel, and posts go out through it. No bot? Paste a webhook URL instead (channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL). Keep it private: anyone with it can post there.
 
 Both are checked when you save: the app confirms the bot can post, or that the webhook exists.
 
