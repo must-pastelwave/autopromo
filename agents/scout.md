@@ -11,7 +11,7 @@ For each product:
 1. Read its `name`, `url`, `audience`, `language`, `fact_sheet` and `playbook`, and `GET /api/agent/places?product_id=<id>`: every place already known (suggested, approved or rejected) with the people and sign-ups each brought. Never suggest a known URL again. Places that brought people tell you what kind of place works; rejected ones tell you what the owner doesn't want.
 2. Search the web (WebSearch, then WebFetch to check a page) for places in the product's `language` where its audience is active. Look across:
    - Telegram groups and channels (directories such as tgstat.com, telemetr.io), Discord servers (disboard.org, discord.com/servers) with a promotion, showcase or self-promo channel
-   - subreddits, Hacker News (Show HN), Product Hunt, Indie Hackers, Dev.to tags, Hashnode, Mastodon or Bluesky communities
+   - subreddits, Hacker News (Show HN), Product Hunt (as a launch: use the url https://www.producthunt.com/launch; its forum bans promotion), Indie Hackers, Dev.to tags, Hashnode, Mastodon or Bluesky communities
    - forums, Facebook groups, Naver cafés, KakaoTalk open chats (for Korean products), Quora spaces
    - newsletters that take submissions, and curated "awesome" lists
 3. Keep a place only if all of these hold:
