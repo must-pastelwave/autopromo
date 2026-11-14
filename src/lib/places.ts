@@ -16,13 +16,14 @@ export const shareText = (caption: string, code: string) => `${caption}\n\n${app
 
 /** Make shares for places that are due one, then send the auto ones. Called by maintenance every few minutes. */
 export async function distribute(): Promise<void> {
-  // Newest published post from the last week that this place hasn't had; text posts first (they read well anywhere).
+  // Newest post from the last week that passed review and this place hasn't had; text posts first (they read well anywhere).
+  // Passed review is enough: a post waiting for its own channel (not connected yet, or approve-first) can still go to places.
   const due = await sql`
     select pl.id as place_id, (
       select x.id from posts x
-      where x.product_id = pl.product_id and x.status = 'published' and x.scheduled_for > now() - interval '7 days'
+      where x.product_id = pl.product_id and x.status in ('published', 'scheduled', 'waiting') and x.created_at > now() - interval '7 days'
         and not exists (select 1 from shares s where s.post_id = x.id and s.place_id = pl.id)
-      order by (x.kind = 'text') desc, x.scheduled_for desc limit 1) as post_id
+      order by (x.kind = 'text') desc, x.created_at desc limit 1) as post_id
     from places pl
     where pl.status = 'approved' and (pl.how = 'paste' or pl.target is not null)
       and (select count(*) from shares s where s.place_id = pl.id and s.created_at > now() - interval '7 days') < pl.per_week

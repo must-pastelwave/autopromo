@@ -46,8 +46,9 @@ test('places: suggested → approved → each gets the newest post with its own 
 
 test('auto places post by themselves, once; per_week caps how often a place gets a post', async () => {
   const { productId, channelId } = await seed()
-  const older = await insertPost(productId, channelId, { status: 'published', scheduled_for: new Date(Date.now() - 86400_000) })
-  const newer = await insertPost(productId, channelId, { status: 'published', scheduled_for: new Date() })
+  const older = await insertPost(productId, channelId, { status: 'published', created_at: new Date(Date.now() - 86400_000) })
+  const newer = await insertPost(productId, channelId, { status: 'waiting', created_at: new Date() })   // passed review, own channel not connected
+  await insertPost(productId, channelId, { status: 'blocked', created_at: new Date() })   // never shared
   await suggestPlaces(productId, [{ name: 'Partner TG', url: 'https://t.me/partner', kind: 'telegram' }])
   await sql`update places set status = 'approved', how = 'auto', target = '-1001234567890', per_week = 1`
 
