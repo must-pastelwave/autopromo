@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { sql } from '@/lib/db'
 import { PRODUCT_COOKIE, requireOwner } from '@/lib/current'
 import { parseFactLines, replaceFacts } from '@/lib/facts'
-import { publish } from '@/lib/publish'
+import { postNow, publish } from '@/lib/publish'
 import { dispatchAgent } from '@/lib/github'
 import { requestRun } from '@/lib/runs'
 import { retryPost } from '@/lib/retry'
@@ -173,4 +173,12 @@ export async function retryPostAction(f: FormData) {
   }
   revalidatePath('/', 'layout')
   redirect(`/posts?msg=${encodeURIComponent(ok ? 'Writing it again now; it appears here in a few minutes.' : 'That post can no longer be written again.')}`)
+}
+
+/** Send a scheduled post now instead of at its slot. */
+export async function postNowAction(f: FormData) {
+  await requireOwner()
+  const ok = await postNow(Number(s(f, 'id')))
+  revalidatePath('/', 'layout')
+  redirect(`/posts?msg=${encodeURIComponent(ok ? 'Going out within a few minutes.' : "Couldn't move it: it may already be going out. Check again in a few minutes.")}`)
 }

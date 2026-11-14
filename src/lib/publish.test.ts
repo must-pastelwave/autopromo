@@ -1,6 +1,6 @@
 import { test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { sql } from './db'
-import { publish, runMaintenance } from './publish'
+import { postNow, publish, runMaintenance } from './publish'
 import { resetDb, seed, insertPost } from '@/test/db'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
@@ -306,3 +306,25 @@ test('a post is never scheduled before its plan item\'s day', async () => {
   const when = (await get(p.id)).scheduled_for as Date
   expect(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(when) >= it.day).toBe(true)
 })
+
+test('post now: the Zernio slot is cancelled, then it goes out in a minute; if cancelling fails nothing changes', async () => {
+  const { postId } = await scheduledZernioPost()
+  const f = vi.fn(async (url: string, init?: RequestInit) => init?.method === 'DELETE' ? Response.json({}) : Response.json({ post: { _id: 'z-now', status: 'scheduled' } }))
+  vi.stubGlobal('fetch', f)
+  expect(await postNow(postId)).toBe(true)
+  const [x] = await sql`select * from posts where id = ${postId}`
+  expect(x).toMatchObject({ status: 'scheduled', zernio_post_id: 'z-now' })
+  expect(Math.abs(new Date(x.scheduled_for).getTime() - Date.now() - 60_000)).toBeLessThan(10_000)
+  expect((f.mock.calls[0] as unknown as [string, RequestInit])[1].method).toBe('DELETE')
+
+  await sql`update posts set scheduled_for = now() + interval '1 day' where id = ${postId}`
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: 'already publishing' }, { status: 409 })))
+  expect(await postNow(postId)).toBe(false)
+  expect((await sql`select status, zernio_post_id from posts where id = ${postId}`)[0]).toEqual({ status: 'scheduled', zernio_post_id: 'z-now' })
+})
+
+async function scheduledZernioPost() {
+  const { productId, channelId } = await seed()
+  const p = await insertPost(productId, channelId, { status: 'scheduled', zernio_post_id: 'z-old', scheduled_for: new Date(Date.now() + 86400_000) })
+  return { postId: p.id as number }
+}
