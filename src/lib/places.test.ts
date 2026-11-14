@@ -104,4 +104,6 @@ test('share text: a banned word skips it; list entries get the link inline', asy
 
   expect(shareText('- [L2U](LINK) - 회원 숙박 할인', 'abc')).toBe('- [L2U](https://app.test/go/abc) - 회원 숙박 할인')
   expect(shareText('hello', 'abc')).toBe('hello\n\nhttps://app.test/go/abc')
+  // Show HN, lists, Product Hunt, newsletters: the product's own link with our tag, no redirect.
+  expect(shareText('[L2U](LINK) - 할인', 'abc', 'list', 'https://l2u.co.kr/')).toBe('[L2U](https://l2u.co.kr/?utm_source=list&utm_medium=social&utm_campaign=autopromo&utm_content=0&src=autopromo-abc) - 할인')
 })

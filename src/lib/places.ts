@@ -1,5 +1,5 @@
 import { sql } from './db'
-import { newCode } from './links'
+import { newCode, trackedUrl } from './links'
 import { checkBluesky, checkDiscord, checkMastodon, checkTelegram, discordWebhookFor, isDiscordChannelId, sendDirect } from './direct'
 
 /**
@@ -12,9 +12,12 @@ export const AUTO_KINDS = ['telegram', 'discord', 'mastodon', 'bluesky']
 export const ONE_TIME_KINDS = ['hackernews', 'producthunt', 'list', 'newsletter']
 const appUrl = () => (process.env.APP_URL ?? '').replace(/\/$/, '')
 
-/** A share's text (written for its place and reviewed) with its tracked link. */
-export function shareText(text: string, code: string): string {
-  const link = `${appUrl()}/go/${code}`
+/**
+ * A share's text (written for its place and reviewed) with its link. Launches, lists and newsletters reject redirect links,
+ * so they get the product's own URL with our source tag; everywhere else gets our tracked /go link (people counted per place).
+ */
+export function shareText(text: string, code: string, kind = '', productUrl = ''): string {
+  const link = ONE_TIME_KINDS.includes(kind) && productUrl ? trackedUrl(productUrl, { channel: kind, postId: 0, topic: '', code }) : `${appUrl()}/go/${code}`
   // List entries carry the link inline: "[Name](LINK) - what it does."
   return text.includes('(LINK)') ? text.replaceAll('(LINK)', `(${link})`) : `${text}\n\n${link}`
 }
