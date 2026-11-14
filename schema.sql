@@ -150,3 +150,4 @@ create unique index if not exists clicks_person on clicks(post_id, (coalesce(sha
 alter table shares add column if not exists text text;
 alter table shares add column if not exists text_status text not null default 'needed';
 alter table shares add column if not exists review_reason text;
+alter table shares add column if not exists revision int not null default 0;
