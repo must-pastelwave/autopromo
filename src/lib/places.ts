@@ -8,6 +8,8 @@ import { checkDiscord, checkTelegram, discordWebhookFor, isDiscordChannelId, sen
  */
 
 const AUTO_KINDS = ['telegram', 'discord']
+// Launches and listings take one post, ever: a second Show HN or Product Hunt launch of the same thing is spam.
+export const ONE_TIME_KINDS = ['hackernews', 'producthunt', 'list', 'newsletter']
 const appUrl = () => (process.env.APP_URL ?? '').replace(/\/$/, '')
 
 export const shareText = (caption: string, code: string) => `${caption}\n\n${appUrl()}/go/${code}`
@@ -23,7 +25,8 @@ export async function distribute(): Promise<void> {
       order by (x.kind = 'text') desc, x.scheduled_for desc limit 1) as post_id
     from places pl
     where pl.status = 'approved' and (pl.how = 'paste' or pl.target is not null)
-      and (select count(*) from shares s where s.place_id = pl.id and s.created_at > now() - interval '7 days') < pl.per_week`
+      and (select count(*) from shares s where s.place_id = pl.id and s.created_at > now() - interval '7 days') < pl.per_week
+      and not (pl.kind = any(${ONE_TIME_KINDS}) and exists (select 1 from shares s where s.place_id = pl.id))`
   for (const d of due) {
     if (d.post_id) await sql`insert into shares (post_id, place_id, link_code) values (${d.post_id}, ${d.place_id}, ${newCode()}) on conflict do nothing`
   }

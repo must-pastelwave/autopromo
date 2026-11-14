@@ -1,6 +1,6 @@
 import { currentProduct } from '@/lib/current'
 import { sql } from '@/lib/db'
-import { placeStats, shareText } from '@/lib/places'
+import { ONE_TIME_KINDS, placeStats, shareText } from '@/lib/places'
 import { Page } from '../sections/frame'
 import { CopyOpen } from '../sections/copy-open'
 import { addPlace, connectPlace, findPlaces, markShare, setPerWeek, setPlaceStatus } from './actions'
@@ -59,11 +59,11 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
                 )}
               </td>
               <td>
-                <form action={setPerWeek} className="row">
+                {ONE_TIME_KINDS.includes(x.kind) ? <span className="muted">once</span> : <form action={setPerWeek} className="row">
                   <input type="hidden" name="id" value={x.id} />
                   <input name="per_week" type="number" min={1} max={14} defaultValue={x.per_week} style={{ width: 56 }} aria-label={`Posts a week in ${x.name}`} />
                   <button type="submit" className="ghost">Set</button>
-                </form>
+                </form>}
               </td>
               <td>{x.posted}</td><td><strong>{x.people}</strong></td><td>{x.signups}</td>
               <td><form action={setPlaceStatus}><input type="hidden" name="id" value={x.id} /><input type="hidden" name="status" value="rejected" /><button type="submit" className="ghost">Remove</button></form></td>
