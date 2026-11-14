@@ -35,12 +35,12 @@ export async function Scorecard({ planId, productId }: { planId: number; product
         })}
       </div>
       <p className="muted" style={{ marginTop: 8 }}>
-        Sign-ups and purchases are counted when the product site reports them; GitHub stars are read from GitHub. Views and engagement come from each platform (via Zernio), clicks from our own links, followers per account. The bar&apos;s mark is where the plan should be today.
+        Sign-ups and purchases are counted when the product site reports them; GitHub stars are read from GitHub. Views and engagement come from each platform (via Zernio), people from our own links (each counted once per post), followers per account. The bar&apos;s mark is where the plan should be today.
         {' '}{sync?.note ? <b>{sync.note}.</b> : sync ? `Last synced ${new Date(sync.at).toLocaleString('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })} KST.` : 'First sync after the first post is published.'}
       </p>
       {s.totals.published > 0 && <div className="two">
-        <section><h3>By theme</h3><div className="scroll"><table><thead><tr><th>Theme</th><th>Posts</th><th>Sign-ups</th><th>Seen</th><th>Engaged</th><th>Clicks</th><th>Click rate</th></tr></thead><tbody>{rows(s.byTheme)}</tbody></table></div></section>
-        <section><h3>By channel</h3><div className="scroll"><table><thead><tr><th>Channel</th><th>Posts</th><th>Sign-ups</th><th>Seen</th><th>Engaged</th><th>Clicks</th><th>Click rate</th></tr></thead><tbody>{rows(s.byChannel)}</tbody></table></div></section>
+        <section><h3>By theme</h3><div className="scroll"><table><thead><tr><th>Theme</th><th>Posts</th><th>Sign-ups</th><th>Seen</th><th>Engaged</th><th>People</th><th>People / seen</th></tr></thead><tbody>{rows(s.byTheme)}</tbody></table></div></section>
+        <section><h3>By channel</h3><div className="scroll"><table><thead><tr><th>Channel</th><th>Posts</th><th>Sign-ups</th><th>Seen</th><th>Engaged</th><th>People</th><th>People / seen</th></tr></thead><tbody>{rows(s.byChannel)}</tbody></table></div></section>
       </div>}
     </section>
   )

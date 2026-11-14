@@ -21,7 +21,7 @@ function Chart({ days }: { days: Day[] }) {
   const total = (key: 'clicks' | 'signups') => days.reduce((a, d) => a + d[key], 0)
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none" role="img"
-      aria-label={`Last ${days.length} days: ${total('clicks')} clicks, ${total('signups')} sign-ups. Each line is scaled to its own maximum.`}>
+      aria-label={`Last ${days.length} days: ${total('clicks')} people, ${total('signups')} sign-ups. Each line is scaled to its own maximum.`}>
       <polyline points={line('clicks')} fill="none" stroke="var(--muted)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
       <polyline points={line('signups')} fill="none" stroke="var(--accent)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
     </svg>
@@ -168,16 +168,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         </tbody>
       </table></div>
 
-      <h2>Clicks and sign-ups per day</h2>
+      <h2>People and sign-ups per day</h2>
       <div className="card">
         <Chart days={days} />
         <div className="row muted" style={{ justifyContent: 'space-between' }}>
           <span>{days[0]?.day}</span>
-          <span><span style={{ color: 'var(--accent)' }}>━</span> sign-ups &nbsp; <span>━</span> clicks</span>
+          <span><span style={{ color: 'var(--accent)' }}>━</span> sign-ups &nbsp; <span>━</span> people</span>
           <span>{days.at(-1)?.day}</span>
         </div>
         <table className="compact" style={{ marginTop: 12 }}>
-          <thead><tr><th></th><th>Sign-ups</th><th>Purchases</th><th>Clicks</th></tr></thead>
+          <thead><tr><th></th><th>Sign-ups</th><th>Purchases</th><th>People</th></tr></thead>
           <tbody>{windows.map(w => <tr key={w.label}><td>{w.label}</td><td><strong>{w.signups}</strong></td><td>{w.purchases}</td><td>{w.clicks}</td></tr>)}</tbody>
         </table>
         <p className="muted" style={{ marginTop: 8 }}>Weekly numbers are signals for tuning. Judge month over month; the first real verdict comes after about 3 months.</p>

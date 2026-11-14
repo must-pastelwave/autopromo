@@ -1,7 +1,10 @@
 import { sql } from './db'
 
 export const PLAN_DAYS = 28
-const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
+/** The channels we use. Others (instagram, facebook, x, youtube, bluesky, naver, hackernews) were dropped on 2026-11-14. */
+export const AUTOMATABLE = ['threads', 'tiktok', 'linkedin', 'telegram', 'discord']
+export const DRAFTS_ONLY = ['reddit']
+export const PLATFORMS = [...AUTOMATABLE, ...DRAFTS_ONLY]
 
 /** The one format each channel takes. */
 export function formatFor(platform: string): 'post' | 'carousel' | 'video' | 'draft' {

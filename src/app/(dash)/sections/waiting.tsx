@@ -3,10 +3,7 @@ import { approveWaiting, resolveWaiting } from '../actions'
 import { CopyOpen } from './copy-open'
 
 const WRITE_PAGE: Record<string, string> = {
-  naver_blog: 'https://blog.naver.com/GoBlogWrite.naver',
-  naver_cafe: 'https://cafe.naver.com/',
   reddit: 'https://www.reddit.com/submit',
-  hackernews: 'https://news.ycombinator.com/submit',
 }
 
 export async function WaitingSection({ p }: { p: Record<string, any> }) {

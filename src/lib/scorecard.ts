@@ -7,7 +7,7 @@ type Row = Omit<Numbers, 'followers' | 'github_stars'> & { key: string }
 /** Plan targets, most important first: sign-ups are what the campaign is for. */
 export const TARGET_KEYS = ['signups', 'purchases', 'github_stars', 'clicks', 'seen', 'engaged', 'followers'] as const
 export const TARGET_LABEL: Record<(typeof TARGET_KEYS)[number], string> = {
-  signups: 'sign-ups', purchases: 'purchases', github_stars: 'GitHub stars', clicks: 'link clicks', seen: 'seen', engaged: 'engagements', followers: 'followers gained',
+  signups: 'sign-ups', purchases: 'purchases', github_stars: 'GitHub stars', clicks: 'people who clicked', seen: 'seen', engaged: 'engagements', followers: 'followers gained',
 }
 
 /**
