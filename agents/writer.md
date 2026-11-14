@@ -29,5 +29,5 @@ Goal: write the posts the **confirmed plan** has coming up, plus one revision of
    - state a limit as a plain sentence ("It only covers X."), never labelled ("An honest limit:", "To be honest"): labels like that read as AI-written. For MPC, no token wording at all, not even disclaimers.
    - same language as the product (a place in another language: skip it, don't write anything). No URLs: the app appends the tracked link. Check the product's `banned_words` first.
    - a share with a `review_reason` was blocked once: start from its `text` and fix exactly what the reason says.
-   - `PUT /api/agent/shares/<id>` with `{text}`.
+   - `PUT /api/agent/shares/<id>` with `{text}`. If the place needs something you can't write within the rules (a fact, prompt, demo or screenshot that isn't on the fact sheet), send `{skip: "<why>"}` instead, so it isn't retried.
 10. `POST /api/agent/maintenance`.

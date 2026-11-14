@@ -122,3 +122,14 @@ test('a blocked share goes back to the writer once with the reason, then is skip
   await call(reviewShare, id, { verdict: 'block', reason: 'still salesy' })
   expect((await sql`select status, text_status from shares`)[0]).toEqual({ status: 'skipped', text_status: 'blocked' })
 })
+
+test('the writer can skip a share it cannot write within the rules', async () => {
+  const { productId, channelId } = await seed()
+  await insertPost(productId, channelId, { status: 'published', created_at: new Date() })
+  await suggestPlaces(productId, [{ name: 'Strict sub', url: 'https://reddit.test/r/strict', kind: 'reddit' }])
+  await sql`update places set status = 'approved'`
+  await distribute()
+  const [{ id }] = await sql`select id from shares`
+  expect((await call(writeShare, id, { skip: 'needs a real prompt' })).status).toBe(200)
+  expect((await sql`select status, review_reason from shares`)[0]).toEqual({ status: 'skipped', review_reason: 'writer skipped: needs a real prompt' })
+})

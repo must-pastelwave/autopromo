@@ -158,17 +158,18 @@ async function directNote(productId: number) {
   return rows.length ? ` ${rows.map(r => r.platform[0].toUpperCase() + r.platform.slice(1)).join(' and ')} ${rows.length === 1 ? "doesn't" : "don't"} report this; only their clicks count.` : ''
 }
 
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400_000).toISOString().slice(0, 10)
 
 /** A product's goals with whether each is tracked and how far it is: last 30 days vs the 1-month number, last 90 vs the 3-month one. */
 export async function goalsWithProgress(productId: number) {
   const goals = await sql<{ id: number; metric: Metric; source: string; target_1m: number | null; target_3m: number | null }[]>`
     select id, metric, source, target_1m, target_3m from goals where product_id = ${productId} order by id`
+  // The database's date, the same clock the snapshots are stamped with (JS UTC dates were a day off overnight in other zones).
+  const [{ d30, d90 }] = await sql`select (current_date - 30)::text as d30, (current_date - 90)::text as d90`
   return Promise.all(goals.map(async g => ({
     ...g,
     label: METRICS[g.metric].label,
     tracking: await tracking(productId, g.metric, g.source),
-    last30: await measure(productId, g.metric, g.source, daysAgo(30)),
-    last90: await measure(productId, g.metric, g.source, daysAgo(90)),
+    last30: await measure(productId, g.metric, g.source, d30),
+    last90: await measure(productId, g.metric, g.source, d90),
   })))
 }
