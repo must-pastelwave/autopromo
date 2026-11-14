@@ -1,10 +1,14 @@
 import { currentProduct } from '@/lib/current'
 import { sql } from '@/lib/db'
-import { ONE_TIME_KINDS, placeStats, shareText } from '@/lib/places'
+import { AUTO_KINDS, ONE_TIME_KINDS, placeStats, shareText } from '@/lib/places'
 import { Page } from '../sections/frame'
 import { CopyOpen } from '../sections/copy-open'
 import { addPlace, connectPlace, findPlaces, markShare, setPerWeek, setPlaceStatus } from './actions'
 
+const PLACEHOLDER: Record<string, string> = {
+  telegram: 'Chat id (our bot must be in it)', discord: 'Webhook URL or channel id',
+  mastodon: 'https://mastodon.social <access token>', bluesky: 'you.bsky.social <app password>',
+}
 const num = (n: number | null) => (n == null ? '—' : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n))
 
 export default async function Places({ searchParams }: { searchParams: Promise<{ msg?: string }> }) {
@@ -46,15 +50,15 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
               <td><a href={x.url} target="_blank" rel="noreferrer"><b>{x.name}</b></a><div className="muted">{x.kind}{x.members ? ` · ${num(x.members)} members` : ''}</div></td>
               <td>
                 {x.how === 'auto' ? <span className="pill pill-ok">auto</span> : <span className="pill pill-muted">you paste</span>}
-                {['telegram', 'discord'].includes(x.kind) && (
+                {AUTO_KINDS.includes(x.kind) && (
                   <details style={{ marginTop: 6 }}>
                     <summary className="muted">{x.how === 'auto' ? 'Change' : 'Post by itself'}</summary>
                     <form action={connectPlace} className="row" style={{ marginTop: 6 }}>
                       <input type="hidden" name="id" value={x.id} />
-                      <input name="target" placeholder={x.kind === 'telegram' ? 'Chat id (our bot must be in it)' : 'Webhook URL or channel id'} aria-label={`Connect ${x.name}`} style={{ width: 220 }} />
+                      <input name="target" placeholder={PLACEHOLDER[x.kind]} aria-label={`Connect ${x.name}`} style={{ width: 220 }} />
                       <button type="submit" className="ghost">Save</button>
                     </form>
-                    <div className="muted">Only after the admin agrees: they add our bot{x.kind === 'discord' ? ' or give you a webhook' : ''}. Leave empty to go back to pasting.</div>
+                    <div className="muted">{['mastodon', 'bluesky'].includes(x.kind) ? 'Your own account on it. ' : `Only after the admin agrees: they add our bot${x.kind === 'discord' ? ' or give you a webhook' : ''}. `}Leave empty to go back to pasting.</div>
                   </details>
                 )}
               </td>
@@ -112,7 +116,7 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
       <details style={{ marginTop: 8 }}>
         <summary>What&apos;s possible</summary>
         <p className="muted">
-          <b>By itself:</b> Telegram and Discord places whose admin added our bot or gave a webhook.<br />
+          <b>By itself:</b> Telegram and Discord places whose admin added our bot or gave a webhook, and your own Mastodon and Bluesky accounts (add them as a place).<br />
           <b>You paste (about a minute):</b> subreddits, Hacker News, Product Hunt, Indie Hackers, self-promo channels in Discord servers, public Telegram groups, Facebook groups, Naver cafés, KakaoTalk open chats, forums, newsletters.<br />
           <b>Never:</b> automating your own account to post in other people&apos;s groups, posting in channels we don&apos;t admin, mass DMs, auto-joining or auto-commenting. Accounts get banned for these.
         </p>

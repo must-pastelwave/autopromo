@@ -2,7 +2,7 @@ import { test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { sql } from './db'
 import { publish, runMaintenance } from './publish'
 import { resetDb, seed, insertPost } from '@/test/db'
-import { checkDiscord, checkTelegram, discordChannels, discordInvite, discordWebhookFor, sendDirect, telegramChats, validDiscordWebhook } from './direct'
+import { checkBluesky, checkDiscord, checkMastodon, checkTelegram, discordChannels, fit, discordInvite, discordWebhookFor, sendDirect, telegramChats, validDiscordWebhook } from './direct'
 import { GET as go } from '@/app/go/[code]/route'
 
 const HOOK = 'https://discord.com/api/webhooks/123456789012/abcdefghijklmnopqrstuvwxyz_-0123'
@@ -209,4 +209,32 @@ test('discord bot: lists text and announcement channels by server, makes our web
   delete process.env.DISCORD_BOT_TOKEN
   expect(await discordInvite()).toBeNull()
   expect(await discordChannels()).toEqual([])
+})
+
+test('mastodon and bluesky: long text is shortened, the link kept whole; bluesky link made clickable', async () => {
+  const link = 'https://app.test/go/abcd1234'
+  const long = `${'가'.repeat(400)}\n\n${link}`
+  const short = fit(long, 300)
+  expect(short.link).toBe(link)
+  expect([...`${short.body}\n\n${short.link}`].length).toBeLessThanOrEqual(300)
+  expect(short.body.endsWith('…')).toBe(true)
+  expect(fit(`hi\n\n${link}`, 300)).toEqual({ body: 'hi', link })
+
+  const f = stub((url) => url.endsWith('createSession') ? Response.json({ accessJwt: 'JWT', did: 'did:plc:me' })
+    : url.endsWith('createRecord') ? Response.json({ uri: 'at://did:plc:me/post/1' })
+    : url.endsWith('/api/v1/statuses') ? Response.json({ id: '99' })
+    : Response.json({ id: 'me' }))
+  expect(await sendDirect('bluesky', 'me.bsky.social abcd-efgh-ijkl-mnop', long)).toBe('at://did:plc:me/post/1')
+  const record = bodyOf(f.mock.calls[1] as unknown as Call).record
+  const bytes = Buffer.from(record.text)
+  const { byteStart, byteEnd } = record.facets[0].index
+  expect(bytes.subarray(byteStart, byteEnd).toString()).toBe(link)
+
+  expect(await sendDirect('mastodon', 'https://fosstodon.org tokentokentokentokentoken', `hello\n\n${link}`)).toBe('99')
+  expect(bodyOf(f.mock.calls[2] as unknown as Call)).toEqual({ status: `hello\n\n${link}` })
+  expect((f.mock.calls[2] as unknown as Call)[0]).toBe('https://fosstodon.org/api/v1/statuses')
+
+  expect(await checkMastodon('https://fosstodon.org tokentokentokentokentoken')).toBeNull()
+  expect(await checkMastodon('fosstodon token')).toMatch(/space between/)
+  expect(await checkBluesky('me.bsky.social mypassword')).toMatch(/app password/)
 })
