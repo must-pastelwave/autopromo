@@ -11,7 +11,11 @@ export async function Scorecard({ planId, productId }: { planId: number; product
   const [sync] = await sql`select at, note from sync_state where key = 'metrics'`
   const pace = s.totalDays ? s.elapsedDays / s.totalDays : 0
   // Purchases and stars only matter for some products; show their tiles once there's a target or a number.
-  const keys = TARGET_KEYS.filter(k => !['purchases', 'github_stars'].includes(k) || s.targets[k] || s.totals[k])
+  // Sign-ups and purchases show only once the site reports them: a "0 / 50 · behind" we can't measure says nothing.
+  const reported = await sql`select distinct v.kind from conversions v join posts p on p.id = v.post_id where p.product_id = ${productId}`
+  const isReported = (k: string) => reported.some(r => r.kind === (k === 'signups' ? 'signup' : 'purchase'))
+  const keys = TARGET_KEYS.filter(k => (!['purchases', 'github_stars'].includes(k) || s.targets[k] || s.totals[k])
+    && (!['signups', 'purchases'].includes(k) || isReported(k)))
   const rows = (list: typeof s.byTheme) => list.map(r => (
     <tr key={r.key}><td>{r.key}</td><td>{r.published}</td><td>{r.signups}</td><td>{fmt(r.seen)}</td><td>{fmt(r.engaged)}</td><td>{r.clicks}</td>
       <td>{r.seen ? `${((r.clicks / r.seen) * 100).toFixed(2)}%` : '—'}</td></tr>

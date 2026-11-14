@@ -8,7 +8,8 @@ export function newCode(): string {
 }
 
 export function trackedUrl(productUrl: string, p: { channel: string; postId: number; topic: string; code?: string; clickId?: number }): string {
-  const u = new URL(productUrl)
+  // {platform} in the product URL becomes the channel, e.g. MPC's own campaign links: app.globalmpc.tech/go/autopromo-{platform}.
+  const u = new URL(productUrl.replaceAll('{platform}', p.channel))
   u.searchParams.set('utm_source', p.channel)
   u.searchParams.set('utm_medium', 'social')
   u.searchParams.set('utm_campaign', 'autopromo')

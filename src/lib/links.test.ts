@@ -21,3 +21,7 @@ test('src carries the link code', () =>
 test('click id is passed on and the #fragment stays last', () =>
   expect(trackedUrl('https://stay2u.com/#membership', { channel: 'instagram', postId: 7, topic: 'x', clickId: 9 }))
     .toBe('https://stay2u.com/?utm_source=instagram&utm_medium=social&utm_campaign=autopromo&utm_content=7&ap_click=9#membership'))
+
+test('{platform} in the product URL becomes the channel, for a site with its own per-code campaign links', () => {
+  expect(new URL(trackedUrl('https://app.example/go/autopromo-{platform}', { channel: 'threads', postId: 7, topic: 't' })).pathname).toBe('/go/autopromo-threads')
+})
