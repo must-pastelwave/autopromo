@@ -1,6 +1,6 @@
 import { sql } from './db'
 import { nextSlot, startOfDay } from './slots'
-import { createPost, getPost, uploadMedia } from './zernio'
+import { cancelPost, createPost, getPost, uploadMedia } from './zernio'
 import { renderVideo } from './video'
 import { trackUse } from './photos'
 import { isDirect, sendDirect, DIRECT } from './direct'
@@ -50,7 +50,7 @@ export async function renderPostVideo(postId: number, slideCount: number, revisi
 }
 
 /** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
-export async function publish(postId: number, opts: { retry?: boolean; approved?: boolean } = {}): Promise<void> {
+export async function publish(postId: number, opts: { retry?: boolean; approved?: boolean; now?: boolean } = {}): Promise<void> {
   const [row] = await sql`
     select p.*, c.platform, c.enabled, c.automatable, c.auto_publish, c.zernio_account_id, c.target, c.started_at, c.per_day, pr.timezone, pr.language, to_char(i.day, 'YYYY-MM-DD') as plan_day
     from posts p join channels c on c.id = p.channel_id join products pr on pr.id = p.product_id
@@ -84,7 +84,8 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
   // ponytail: two publishes racing on one account could pick the same slot; agents run one at a time.
   // Never before the plan item's day.
   const notBefore = row.plan_day ? startOfDay(row.timezone, row.plan_day) : new Date(0)
-  const when = nextSlot({
+  // "Post now" (the owner's call) skips the slot rules and goes out in a minute.
+  const when = opts.now ? new Date(Date.now() + 60_000) : nextSlot({
     now: new Date(Math.max(Date.now(), notBefore.getTime())), tz: row.timezone,
     perDay: row.per_day,
     startedAt: row.started_at, taken: taken.map(t => t.scheduled_for),
@@ -109,7 +110,7 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
         : slideUrls,
       scheduledFor: when,
       // A new key per revision and for the retry: Zernio would replay a failed attempt under the same key.
-      idempotencyKey: `post-${postId}-r${row.revision}${opts.retry ? '-retry' : ''}`,
+      idempotencyKey: `post-${postId}-r${row.revision}${opts.retry ? '-retry' : ''}${opts.now ? `-now${Date.now()}` : ''}`,
       ...(isVideo ? { mediaType: 'video' as const, ...videoFields(row.platform, row.caption) } : {}),
     })
     await sql`update posts set status = 'scheduled', scheduled_for = ${when}, zernio_post_id = ${zernioId}, error = null where id = ${postId}`
@@ -118,6 +119,26 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
   } catch (e) {
     await fail(e instanceof Error ? e.message : String(e))
   }
+}
+
+/**
+ * The owner wants a scheduled post out now instead of at its slot. Its Zernio slot is cancelled first;
+ * if that fails (it may already be going out), nothing changes, so it can't be posted twice.
+ */
+export async function postNow(postId: number): Promise<boolean> {
+  const [p] = await sql`update posts set status = 'passed' where id = ${postId} and status = 'scheduled' returning zernio_post_id`
+  if (!p) return false
+  if (p.zernio_post_id) {
+    try {
+      await cancelPost(p.zernio_post_id)
+    } catch {
+      await sql`update posts set status = 'scheduled' where id = ${postId}`
+      return false
+    }
+    await sql`update posts set zernio_post_id = null where id = ${postId}`
+  }
+  await publish(postId, { approved: true, now: true })
+  return true
 }
 
 /** Periodic upkeep: retry transient failures once, sync published state, expire old drafts. */

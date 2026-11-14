@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { sql } from '@/lib/db'
 import { postState, type Tab } from '@/lib/status'
 import { isDirect } from '@/lib/direct'
-import { retryPostAction } from '../actions'
+import { postNowAction, retryPostAction } from '../actions'
 
 const TABS: [Tab | 'all', string][] = [['all', 'All'], ['needs-you', 'Needs you'], ['upcoming', 'Upcoming'], ['published', 'Published'], ['blocked', 'Blocked'], ['set-aside', 'Set aside']]
 const num = (n: number) => new Intl.NumberFormat('en', { notation: n >= 10000 ? 'compact' : 'standard' }).format(n)
@@ -12,6 +12,7 @@ export async function PostsSection({ p, status: asked }: { p: Record<string, any
   const app = (process.env.APP_URL ?? '').replace(/\/$/, '')
   const rows = await sql`
     select x.*, c.platform, i.theme, to_char(i.day, 'YYYY-MM-DD') as plan_day, (i.day >= current_date - 1) as retryable_day,
+      (x.status = 'scheduled' and x.scheduled_for > now() + interval '5 minutes') as can_post_now,
       (select count(*)::int from clicks k where k.post_id = x.id) as clicks,
       coalesce(greatest(m.impressions, m.views, m.reach), 0)::int as seen, coalesce(m.likes + m.comments + m.shares + m.saves, 0)::int as engaged, m.post_url
     from posts x join channels c on c.id = x.channel_id left join post_metrics m on m.post_id = x.id left join plan_items i on i.id = x.plan_item_id
@@ -67,6 +68,9 @@ export async function PostsSection({ p, status: asked }: { p: Record<string, any
                 </div>
                 <div className="row actions">
                   {x.status === 'waiting' && <Link className="button" href="/waiting">Review in Waiting for you</Link>}
+                  {x.can_post_now && (
+                    <form action={postNowAction}><input type="hidden" name="id" value={x.id} /><button type="submit">Post now</button></form>
+                  )}
                   {['blocked', 'dropped'].includes(x.status) && x.plan_item_id && x.retryable_day && !String(x.review_reason ?? '').includes('[retried]') && (
                     <form action={retryPostAction}>
                       <input type="hidden" name="id" value={x.id} />
