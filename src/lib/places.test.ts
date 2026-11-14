@@ -107,3 +107,18 @@ test('share text: a banned word skips it; list entries get the link inline', asy
   // Show HN, lists, Product Hunt, newsletters: the product's own link with our tag, no redirect.
   expect(shareText('[L2U](LINK) - 할인', 'abc', 'list', 'https://l2u.co.kr/')).toBe('[L2U](https://l2u.co.kr/?utm_source=list&utm_medium=social&utm_campaign=autopromo&utm_content=0&src=autopromo-abc) - 할인')
 })
+
+test('a blocked share goes back to the writer once with the reason, then is skipped', async () => {
+  const { productId, channelId } = await seed()
+  await insertPost(productId, channelId, { status: 'published', created_at: new Date() })
+  await suggestPlaces(productId, [{ name: 'Forum', url: 'https://forum.test/a', kind: 'forum' }])
+  await sql`update places set status = 'approved'`
+  await distribute()
+  const [{ id }] = await sql`select id from shares`
+  await call(writeShare, id, { text: 'first try' })
+  await call(reviewShare, id, { verdict: 'block', reason: 'too salesy' })
+  expect((await sql`select status, text_status, review_reason from shares`)[0]).toEqual({ status: 'todo', text_status: 'needed', review_reason: 'too salesy' })
+  await call(writeShare, id, { text: 'second try' })
+  await call(reviewShare, id, { verdict: 'block', reason: 'still salesy' })
+  expect((await sql`select status, text_status from shares`)[0]).toEqual({ status: 'skipped', text_status: 'blocked' })
+})
