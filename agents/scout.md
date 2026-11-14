@@ -4,7 +4,9 @@ Goal: find the communities where each product's audience already gathers and whe
 
 ## Steps
 
-For each product from `GET /api/agent/products`:
+Do **every** product from `GET /api/agent/products`, starting with the one with the fewest known places, so none is left out when time runs short. Spend at most about 25 turns on one product.
+
+For each product:
 
 1. Read its `name`, `url`, `audience`, `language`, `fact_sheet` and `playbook`, and `GET /api/agent/places?product_id=<id>`: every place already known (suggested, approved or rejected) with the people and sign-ups each brought. Never suggest a known URL again. Places that brought people tell you what kind of place works; rejected ones tell you what the owner doesn't want.
 2. Search the web (WebSearch, then WebFetch to check a page) for places in the product's `language` where its audience is active. Look across:
