@@ -1,5 +1,6 @@
 import { sql } from '@/lib/db'
 import { bad } from '@/lib/postInput'
+import { placeStats } from '@/lib/places'
 
 export async function GET(req: Request) {
   const u = new URL(req.url)
@@ -17,5 +18,7 @@ export async function GET(req: Request) {
     where p.product_id = ${productId} and p.status in ('scheduled', 'published')
       and p.scheduled_for > now() - make_interval(days => ${days})
     order by p.scheduled_for desc`
-  return Response.json({ posts })
+  // Places (communities we share posts to): people and sign-ups each brought, all time.
+  const places = (await placeStats(productId)).filter(p => p.status === 'approved')
+  return Response.json({ posts, places })
 }

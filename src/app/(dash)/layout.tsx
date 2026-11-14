@@ -10,10 +10,12 @@ export default async function DashLayout({ children }: { children: React.ReactNo
   await connection() // always per request: never touch the database at build time
   const products = await sql`select slug, name from products order by id`
   const current = await currentProduct()
-  const [{ n, draft }] = current
-    ? await sql`select count(*)::int as n, exists (select 1 from plans where product_id = ${current.id} and status = 'draft') as draft
+  const [{ n, draft, paste }] = current
+    ? await sql`select count(*)::int as n, exists (select 1 from plans where product_id = ${current.id} and status = 'draft') as draft,
+        (select count(*)::int from shares s join places pl on pl.id = s.place_id
+          where pl.product_id = ${current.id} and s.status = 'todo' and pl.how = 'paste' and pl.status = 'approved') as paste
         from posts where product_id = ${current.id} and status = 'waiting'`
-    : [{ n: 0, draft: false }]
+    : [{ n: 0, draft: false, paste: 0 }]
   const step = current ? (await journeyFor(current.id))?.step ?? null : null
   return (
     <div className="admin">
@@ -31,7 +33,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
           </form>
         )}
         <Link href="/products/new" className="add-product">+ Add product</Link>
-        <Nav waiting={n} planDraft={draft} step={step} />
+        <Nav waiting={n} toPaste={paste} planDraft={draft} step={step} />
       </aside>
       <main>{children}</main>
     </div>

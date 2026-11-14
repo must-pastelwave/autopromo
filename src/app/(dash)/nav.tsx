@@ -9,19 +9,20 @@ const ITEMS: { href: string; label: string; from: Step | null; why: string }[] =
   { href: '/plan', label: 'Plan', from: 'plan', why: 'after research and channels' },
   { href: '/waiting', label: 'Waiting for you', from: 'running', why: 'once a plan is confirmed' },
   { href: '/posts', label: 'Posts', from: 'running', why: 'once a plan is confirmed' },
+  { href: '/places', label: 'Places', from: 'running', why: 'once a plan is confirmed' },
   { href: '/channels', label: 'Channels', from: 'channels', why: 'after research' },
   { href: '/settings', label: 'Settings', from: null, why: '' },
 ]
 const ORDER: Step[] = ['research', 'channels', 'plan', 'running']
 
-export function Nav({ waiting, planDraft, step }: { waiting: number; planDraft: boolean; step: Step | null }) {
+export function Nav({ waiting, toPaste = 0, planDraft, step }: { waiting: number; toPaste?: number; planDraft: boolean; step: Step | null }) {
   const path = usePathname()
   const reached = (from: Step | null) => from === null || (step !== null && ORDER.indexOf(step) >= ORDER.indexOf(from))
   return (
     <nav className="side-nav" aria-label="Admin">
       {ITEMS.map(({ href, label, from, why }) => reached(from) ? (
         <Link key={href} href={href} aria-current={path === href ? 'page' : undefined}>
-          {label}{href === '/waiting' && waiting > 0 && <span className="count">{waiting}</span>}{href === '/plan' && planDraft && <span className="count">!</span>}
+          {label}{href === '/waiting' && waiting > 0 && <span className="count">{waiting}</span>}{href === '/places' && toPaste > 0 && <span className="count">{toPaste}</span>}{href === '/plan' && planDraft && <span className="count">!</span>}
         </Link>
       ) : (
         <span key={href} className="locked" title={`Opens ${why}`}>{label}<span className="lock" aria-label={`opens ${why}`}>🔒</span></span>

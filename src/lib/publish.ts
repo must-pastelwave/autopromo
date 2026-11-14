@@ -4,6 +4,7 @@ import { createPost, getPost, uploadMedia } from './zernio'
 import { renderVideo } from './video'
 import { trackUse } from './photos'
 import { isDirect, sendDirect, DIRECT } from './direct'
+import { distribute } from './places'
 
 // Shown where captions can't hold a clickable link. Keyed by the product's language.
 const BIO_NOTE: Record<string, string> = { ko: '프로필 링크에서 확인하세요', en: 'Link in our profile' }
@@ -143,6 +144,7 @@ export async function runMaintenance(): Promise<void> {
   for (const r of retry) await publish(r.id, { retry: true, approved: true })
 
   await sendDueDirect()
+  await distribute()
 
   const due = await sql`
     select id, zernio_post_id from posts
