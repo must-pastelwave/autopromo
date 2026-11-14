@@ -97,7 +97,7 @@ export async function connectUrl(platform: string, profileId: string, redirectUr
   return body.authUrl
 }
 
-export type ZernioPostMetrics = { _id: string; platformPostUrl?: string; analytics?: Record<string, number> }
+export type ZernioPostMetrics = { _id: string; latePostId?: string; platformPostUrl?: string; analytics?: Record<string, number> }
 
 /** One page of post analytics (posts made through Zernio), newest first. */
 export async function getAnalytics(q: { fromDate: string; page: number; limit: number }): Promise<{ posts: ZernioPostMetrics[]; total: number }> {

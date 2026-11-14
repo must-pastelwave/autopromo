@@ -26,6 +26,16 @@ test('stores platform metrics for our published posts and follower counts per co
   expect(fc).toEqual([{ day: '2026-11-10', followers: 100 }, { day: '2026-11-11', followers: 120 }])
 })
 
+test('matches analytics to our post by latePostId, since the list _id is a different id', async () => {
+  const { productId, channelId } = await seed()
+  const p = await insertPost(productId, channelId, { status: 'published', zernio_post_id: 'z1', scheduled_for: new Date() })
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/analytics?')
+    ? Response.json(analytics([{ ...zpost('a-record-id', { impressions: 80, likes: 3 }), latePostId: 'z1' }]))
+    : Response.json({ stats: {} })))
+  expect(await syncMetrics({ force: true })).toBe('ok')
+  expect((await sql`select impressions, likes from post_metrics where post_id = ${p.id}`)[0]).toEqual({ impressions: 80, likes: 3 })
+})
+
 test('runs at most hourly unless forced; a plan without analytics is remembered, not retried every time', async () => {
   const { productId, channelId } = await seed()
   await insertPost(productId, channelId, { status: 'published', zernio_post_id: 'z1', scheduled_for: new Date() })

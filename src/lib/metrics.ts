@@ -27,7 +27,8 @@ export async function syncMetrics(o: { force?: boolean } = {}): Promise<'ok' | '
     for (let page = 1, seen = 0; page <= 10; page++) {
       const { posts, total } = await getAnalytics({ fromDate: from, page, limit: 100 })
       for (const z of posts) {
-        const postId = byZernio.get(z._id)
+        // A list item's _id is Zernio's analytics record; latePostId is the post id we stored when publishing.
+        const postId = byZernio.get(z.latePostId ?? z._id)
         if (!postId) continue
         const a = z.analytics ?? {}
         await sql`
