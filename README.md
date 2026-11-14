@@ -14,7 +14,9 @@ Posts it makes: short videos for TikTok and YouTube Shorts, Instagram carousels,
 4. **Writer** writes each post on its day.
 5. **Reviewer** checks every post against the fact sheet and rules. Anything doubtful is blocked.
 6. **You approve** posts at first. Once a channel runs cleanly, switch it to auto.
-7. **Analyst** reads the results weekly and tells the next plan what to keep and what to drop.
+7. **Scout** finds communities where your audience gathers (Telegram and Discord groups, subreddits, Show HN, forums, newsletters, awesome lists). You approve them on the Places page.
+8. Each reviewed post is **rewritten for every approved place** and checked again. Places whose admin added our bot (and your own Mastodon and Bluesky) get it automatically; for the rest you copy, open and paste it in about a minute. Each place has its own tracked link, so you see how many people each one brought.
+9. **Analyst** reads the results weekly and tells the next plan what to keep and what to drop.
 
 Every post gets its own tracked link, so you see which posts bring customers, not just views.
 
@@ -28,6 +30,7 @@ Everything happens in the dashboard:
 | Plan | Review, edit and confirm the 4-week plan |
 | Waiting for you | Approve or skip reviewed posts |
 | Posts | Every post, its status and its numbers |
+| Places | Communities to share posts in: approve the scout's suggestions, paste the ready posts, see people per place |
 | Channels | Connect accounts, turn channels on, switch to auto |
 | Settings | Products, fact sheet, posts per day, bio link |
 
