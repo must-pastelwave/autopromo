@@ -21,7 +21,7 @@ test('plan results: seen, engaged, clicks, followers gained, vs targets, by them
 
   const s = (await scorecard(pl.id))!
   expect(s.totals).toMatchObject({ published: 2, signups: 2, purchases: 1, seen: 5000, engaged: 80, clicks: 7, followers: 30, github_stars: 12 })
-  expect(s.targets).toEqual({ signups: 10, purchases: null, github_stars: null, seen: 10000, engaged: 300, clicks: 100, followers: 50 })
+  expect(s.targets).toEqual({ signups: 10, purchases: null, github_stars: 50, seen: 10000, engaged: 300, clicks: 100, followers: 50 })
   expect(s.byTheme.map(t => [t.key, t.signups, t.seen, t.engaged, t.clicks])).toEqual([['Explainers', 2, 1000, 30, 7], ['Proof', 0, 4000, 50, 0]])
   expect(s.byChannel).toEqual([expect.objectContaining({ key: 'threads', published: 2, seen: 5000 })])
   expect(s.elapsedDays).toBe(7)

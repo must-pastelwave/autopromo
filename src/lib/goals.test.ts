@@ -1,7 +1,7 @@
 import { test, expect, beforeEach, vi, afterEach } from 'vitest'
 import { sql } from './db'
 import { resetDb, seed, insertPost } from '@/test/db'
-import { parseGoals, tracking, goalsWithProgress, syncCounters, repoStars } from './goals'
+import { parseGoals, tracking, goalsWithProgress, syncCounters, repoStars, saveSnapshot } from './goals'
 
 beforeEach(resetDb)
 afterEach(() => vi.unstubAllGlobals())
@@ -39,6 +39,16 @@ test('github stars: gain since the window start, or since the first reading', as
   expect(g.tracking.ok).toBe(true)
   expect(g.last30.value).toBe(30)   // 150 - 120 (the reading on the window's first day)
   expect(g.last90.value).toBe(50)   // 150 - 100 (first reading; started tracking 40 days ago)
+})
+
+test('the first day keeps its first reading as the baseline; later days take the newest', async () => {
+  await saveSnapshot('o/r', 'github_stars', 55)
+  await saveSnapshot('o/r', 'github_stars', 56)
+  expect((await sql`select value from counter_snapshots where source = 'o/r'`)[0].value).toBe(55)
+  await sql`update counter_snapshots set day = current_date - 1 where source = 'o/r'`
+  await saveSnapshot('o/r', 'github_stars', 57)
+  await saveSnapshot('o/r', 'github_stars', 58)
+  expect((await sql`select value from counter_snapshots where source = 'o/r' and day = current_date`)[0].value).toBe(58)
 })
 
 test('syncCounters reads each repo once and notes failures', async () => {
