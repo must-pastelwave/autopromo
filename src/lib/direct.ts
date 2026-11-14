@@ -90,17 +90,18 @@ export async function checkTelegram(chat: string): Promise<string | null> {
 const DISCORD_HOOK = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d{5,25}\/[\w-]{20,100}$/
 export const validDiscordWebhook = (v: string) => DISCORD_HOOK.test(v)
 
-async function discordFetch(url: string, init: RequestInit = {}): Promise<any> {
+async function call(platform: string, url: string, init: RequestInit = {}): Promise<any> {
   let r: Response
   try {
     r = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT) })
   } catch (e) {
-    throw new DirectError('discord', 0, `unreachable (${e instanceof Error ? e.name : 'error'})`)
+    throw new DirectError(platform, 0, `unreachable (${e instanceof Error ? e.name : 'error'})`)
   }
   const j = await r.json().catch(() => null)
-  if (!r.ok) throw new DirectError('discord', r.status, j?.message ?? `HTTP ${r.status}`)
+  if (!r.ok) throw new DirectError(platform, r.status, j?.message ?? j?.error ?? `HTTP ${r.status}`)
   return j
 }
+const discordFetch = (url: string, init: RequestInit = {}) => call('discord', url, init)
 
 async function discord(url: string, init: RequestInit = {}): Promise<any> {
   if (!validDiscordWebhook(url.split('?')[0])) throw new DirectError('discord', 0, 'not a Discord webhook URL')
@@ -171,6 +172,50 @@ export async function checkDiscord(url: string): Promise<string | null> {
 /** Last 4 characters only: the webhook URL is a secret. */
 export const maskWebhook = (url: string) => `…${url.slice(-4)}`
 
+// ---- Mastodon and Bluesky: our own accounts, posted to as places. The target holds the login. ----
+
+// "https://<instance> <access token>" (Preferences → Development → New application, scope write:statuses)
+const MASTODON = /^(https:\/\/[a-z0-9.-]+\.[a-z]{2,}) (\S{20,})$/i
+// "<handle> <app password>" (Settings → Privacy and security → App passwords)
+const BLUESKY = /^([a-z0-9.-]+\.[a-z]{2,}) ([a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})$/i
+
+/** Short networks: keep the link (the last line) whole and shorten the text before it. */
+export function fit(text: string, max: number): { body: string; link: string } {
+  const i = text.lastIndexOf('\n\n')
+  const body = text.slice(0, i), link = text.slice(i + 2)
+  const room = max - [...link].length - 2
+  const chars = [...body]
+  return { body: chars.length > room ? `${chars.slice(0, room - 1).join('').trimEnd()}…` : body, link }
+}
+
+async function bskySession(target: string) {
+  const [, identifier, password] = target.match(BLUESKY)!
+  return call('bluesky', 'https://bsky.social/xrpc/com.atproto.server.createSession', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier, password }),
+  })
+}
+
+export async function checkMastodon(target: string): Promise<string | null> {
+  const m = target.match(MASTODON)
+  if (!m) return 'Enter the server and access token with a space between: https://mastodon.social abc123…'
+  try {
+    await call('mastodon', `${m[1]}/api/v1/accounts/verify_credentials`, { headers: { Authorization: `Bearer ${m[2]}` } })
+    return null
+  } catch (e) {
+    return `Mastodon didn't accept that token (${e instanceof Error ? e.message.replace(/^mastodon \d+: /, '') : e}).`
+  }
+}
+
+export async function checkBluesky(target: string): Promise<string | null> {
+  if (!BLUESKY.test(target)) return 'Enter your handle and an app password with a space between: you.bsky.social abcd-efgh-ijkl-mnop'
+  try {
+    await bskySession(target)
+    return null
+  } catch (e) {
+    return `Bluesky didn't accept that login (${e instanceof Error ? e.message.replace(/^bluesky \d+: /, '') : e}). Use an app password, not your real one.`
+  }
+}
+
 // ---- Sending ----
 
 /** Send one post now. `text` already ends with the tracked link. Returns the platform's message id. */
@@ -188,6 +233,30 @@ export async function sendDirect(platform: string, target: string, text: string,
       body: JSON.stringify({ content: text, allowed_mentions: { parse: [] }, ...(imageUrl ? { embeds: [{ image: { url: imageUrl } }] } : {}) }),
     })
     return String(res?.id ?? '')
+  }
+  if (platform === 'mastodon') {
+    const m = target.match(MASTODON)
+    if (!m) throw new DirectError('mastodon', 0, 'not a Mastodon login')
+    const { body, link } = fit(text, 500)
+    const res = await call('mastodon', `${m[1]}/api/v1/statuses`, {
+      method: 'POST', headers: { Authorization: `Bearer ${m[2]}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ status: `${body}\n\n${link}` }),
+    })
+    return String(res?.id ?? '')
+  }
+  if (platform === 'bluesky') {
+    if (!BLUESKY.test(target)) throw new DirectError('bluesky', 0, 'not a Bluesky login')
+    const session = await bskySession(target)
+    const { body, link } = fit(text, 300)
+    // Bluesky links are clickable only through a facet, with UTF-8 byte offsets.
+    const byteStart = Buffer.byteLength(`${body}\n\n`)
+    const res = await call('bluesky', 'https://bsky.social/xrpc/com.atproto.repo.createRecord', {
+      method: 'POST', headers: { Authorization: `Bearer ${session.accessJwt}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repo: session.did, collection: 'app.bsky.feed.post', record: {
+        $type: 'app.bsky.feed.post', text: `${body}\n\n${link}`, createdAt: new Date().toISOString(),
+        facets: [{ index: { byteStart, byteEnd: byteStart + Buffer.byteLength(link) }, features: [{ $type: 'app.bsky.richtext.facet#link', uri: link }] }],
+      } }),
+    })
+    return String(res?.uri ?? '')
   }
   throw new DirectError(platform, 0, 'not a direct channel')
 }
