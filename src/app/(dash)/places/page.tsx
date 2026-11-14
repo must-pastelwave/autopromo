@@ -18,9 +18,9 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
   const places = await placeStats(p.id)
   const used = places.filter(x => x.status === 'approved'), suggested = places.filter(x => x.status === 'suggested')
   const todo = await sql`
-    select s.id, s.link_code, x.caption, pl.name, pl.url, pl.kind, pl.rules
-    from shares s join places pl on pl.id = s.place_id join posts x on x.id = s.post_id
-    where pl.product_id = ${p.id} and s.status = 'todo' and pl.how = 'paste' and pl.status = 'approved'
+    select s.id, s.link_code, s.text, pl.name, pl.url, pl.kind, pl.rules
+    from shares s join places pl on pl.id = s.place_id
+    where pl.product_id = ${p.id} and s.status = 'todo' and s.text_status = 'ok' and pl.how = 'paste' and pl.status = 'approved'
     order by s.created_at`
 
   return (
@@ -31,15 +31,15 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
       {todo.map(t => (
         <div key={t.id} className="card" style={{ marginBottom: 12 }}>
           <div className="muted"><a href={t.url} target="_blank" rel="noreferrer"><b>{t.name}</b></a> · {t.kind}{t.rules ? ` · rules: ${t.rules}` : ''}</div>
-          <div style={{ whiteSpace: 'pre-wrap', margin: '8px 0' }}>{shareText(t.caption, t.link_code)}</div>
+          <div style={{ whiteSpace: 'pre-wrap', margin: '8px 0' }}>{shareText(t.text, t.link_code)}</div>
           <div className="row">
-            <CopyOpen text={shareText(t.caption, t.link_code)} href={t.url} />
+            <CopyOpen text={shareText(t.text, t.link_code)} href={t.url} />
             <form action={markShare}><input type="hidden" name="id" value={t.id} /><input type="hidden" name="outcome" value="posted" /><button type="submit">I posted it</button></form>
             <form action={markShare}><input type="hidden" name="id" value={t.id} /><input type="hidden" name="outcome" value="skip" /><button type="submit" className="ghost">Skip</button></form>
           </div>
         </div>
       ))}
-      {todo.length === 0 && <p className="muted">Nothing to paste. Approved places get a post as soon as one is published.</p>}
+      {todo.length === 0 && <p className="muted">Nothing to paste. Approved places get a post once one passes review; the writer then adapts it to each place, and the reviewer checks it.</p>}
 
       <h2>Places in use</h2>
       <div className="scroll"><table>

@@ -146,3 +146,7 @@ alter table clicks add column if not exists share_id int references shares on de
 -- A person counts once per post and place (share_id 0 = our own channel).
 drop index if exists clicks_post_visitor;
 create unique index if not exists clicks_person on clicks(post_id, (coalesce(share_id, 0)), visitor);
+-- Each share is written for its place (the writer adapts the post to the place's rules and format) and reviewed before it's shown or sent.
+alter table shares add column if not exists text text;
+alter table shares add column if not exists text_status text not null default 'needed';
+alter table shares add column if not exists review_reason text;
