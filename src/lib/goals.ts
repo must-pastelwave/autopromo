@@ -4,7 +4,7 @@ import { sql } from './db'
 export const METRICS = {
   signups: { label: 'Sign-ups', how: 'reported by your site to /api/conversions' },
   purchases: { label: 'Purchases', how: 'reported by your site to /api/conversions' },
-  clicks: { label: 'Link clicks', how: 'clicks on our tracked links' },
+  clicks: { label: 'People who clicked', how: 'people on our tracked links, each counted once per post' },
   seen: { label: 'Post views', how: 'views or impressions of our posts, from Zernio' },
   engaged: { label: 'Engagements', how: 'likes, comments, shares and saves on our posts, from Zernio' },
   followers: { label: 'Followers gained', how: 'follower counts of the connected accounts, from Zernio' },

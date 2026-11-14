@@ -10,10 +10,9 @@ import { dispatchAgent } from '@/lib/github'
 import { requestRun } from '@/lib/runs'
 import { retryPost } from '@/lib/retry'
 import { parseGoals, repoStars, saveSnapshot } from '@/lib/goals'
+import { AUTOMATABLE, DRAFTS_ONLY } from '@/lib/plans'
 import { checkDiscord, checkTelegram, discordWebhookFor, isDiscordChannelId } from '@/lib/direct'
 
-const AUTOMATABLE = ['instagram', 'threads', 'facebook', 'x', 'youtube', 'tiktok', 'linkedin', 'bluesky', 'telegram', 'discord']
-const DRAFTS_ONLY = ['naver_blog', 'naver_cafe', 'reddit', 'hackernews']
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
 const back = (msg: string, section = 'settings'): never => redirect(`/${section}${section.includes('?') ? '&' : '?'}msg=${encodeURIComponent(msg)}`)

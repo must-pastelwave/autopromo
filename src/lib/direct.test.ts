@@ -53,6 +53,15 @@ test('clicks: a person on the posted link is counted; Telegram and Discord previ
   const r = await open('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148')
   expect(new URL(r.headers.get('location')!).searchParams.get('utm_source')).toBe('telegram')
   expect((await sql`select count(*)::int as n from clicks where post_id = ${p.id}`)[0].n).toBe(1)
+
+  // The same person again counts once and keeps their first click id; someone else counts.
+  const iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148'
+  const from = (ip: string) => go(new Request(`http://app.test/go/${p.link_code}`, { headers: { 'user-agent': iphone, 'x-forwarded-for': ip } }), { params: Promise.resolve({ code: p.link_code }) })
+  const clickId = async (res: Response) => new URL(res.headers.get('location')!).searchParams.get('ap_click')
+  const first = await clickId(await from('1.2.3.4'))
+  expect(await clickId(await from('1.2.3.4, 10.0.0.1'))).toBe(first)
+  await from('5.6.7.8')
+  expect((await sql`select count(*)::int as n from clicks where post_id = ${p.id}`)[0].n).toBe(3)
 })
 
 test('telegram with one photo: sendPhoto, the link in the caption', async () => {

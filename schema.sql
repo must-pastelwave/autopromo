@@ -119,3 +119,10 @@ alter table channels add column if not exists target text;
 insert into channels (product_id, platform, automatable)
   select p.id, x.platform, true from products p cross join (values ('telegram'), ('discord')) x(platform)
   where not exists (select 1 from channels c where c.product_id = p.id and c.platform = x.platform);
+-- A person, counted once per post: a one-way hash of IP + browser (no raw IP kept). Old clicks have none.
+alter table clicks add column if not exists visitor text;
+create unique index if not exists clicks_post_visitor on clicks(post_id, visitor);
+-- Channels dropped on 2026-11-14. Ones with posts stay (history), switched off; the app hides them.
+update channels set enabled = false where platform in ('instagram','facebook','x','youtube','bluesky','naver_blog','naver_cafe','hackernews');
+delete from channels c where platform in ('instagram','facebook','x','youtube','bluesky','naver_blog','naver_cafe','hackernews')
+  and not exists (select 1 from posts x where x.channel_id = c.id);
