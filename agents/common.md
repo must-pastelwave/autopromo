@@ -34,7 +34,7 @@ Shell `$VARIABLES`, pipes and other commands are blocked; only plain `curl` comm
 | `GET /api/agent/places?product_id=<id>` | communities known for the product (suggested, approved, rejected) with people and sign-ups each brought |
 | `POST /api/agent/places` `{product_id, places:[{name, url, kind, members, rules, why}]}` | the scout's suggestions |
 | `GET /api/agent/shares?status=needed` (or `draft`) | posts going to a community, to write (writer) or review (reviewer), with the place, post and product rules |
-| `PUT /api/agent/shares/<id>` `{text}` | the writer's text for that place |
+| `PUT /api/agent/shares/<id>` `{text}` or `{skip}` | the writer's text for that place, or why it can't be written |
 | `POST /api/agent/shares/<id>/review` `{verdict, reason}` | review a share's text |
 | `POST /api/agent/maintenance` | call once at the very end of every run |
 

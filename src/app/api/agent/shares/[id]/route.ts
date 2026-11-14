@@ -2,11 +2,17 @@ import { sql } from '@/lib/db'
 import { bad, idParam, readJson } from '@/lib/postInput'
 import { findBanned } from '@/lib/rules'
 
-/** The writer's text for one place: {text}. The app appends the tracked link. A banned word blocks it for good. */
+/** The writer's text for one place: {text}, or {skip: reason}. The app appends the tracked link. A banned word blocks it for good. */
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = idParam((await params).id)
   if (id === null) return bad('not found', 404)
   const b = await readJson(req)
+  // The writer can't write it within the rules (e.g. the place requires something the fact sheet doesn't have): skip it for good.
+  if (typeof b?.skip === 'string' && b.skip.trim()) {
+    const [x] = await sql`update shares set status = 'skipped', review_reason = ${`writer skipped: ${b.skip.trim().slice(0, 500)}`}
+      where id = ${id} and status = 'todo' and text_status = 'needed' returning id`
+    return x ? Response.json({ ok: true }) : bad('not a share waiting for its text', 409)
+  }
   const text = typeof b?.text === 'string' ? b.text.trim() : ''
   if (!text || text.length > 4000) return bad('text required, at most 4000 characters')
   if (/https?:\/\//i.test(text)) return bad('no URLs: the app appends the tracked link')
