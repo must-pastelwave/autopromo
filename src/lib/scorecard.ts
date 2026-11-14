@@ -44,9 +44,11 @@ export async function scorecard(planId: number) {
           (select followers from follower_counts fc where fc.channel_id = c.id order by day limit 1)) as base_f
       from channels c where c.product_id = ${plan.product_id} and c.enabled) x
     where now_f is not null and base_f is not null`
-  let stars = 0
-  for (const g of await sql`select distinct source from goals where product_id = ${plan.product_id} and metric = 'github_stars'`)
+  let stars = 0, starGoal = 0
+  for (const g of await sql`select source, max(target_1m) as m1 from goals where product_id = ${plan.product_id} and metric = 'github_stars' group by source`) {
     stars += (await measure(plan.product_id, 'github_stars', g.source, plan.starts_on)).value
+    starGoal += Number(g.m1 ?? 0)
+  }
   const sum = (k: keyof Row) => byChannel.reduce((a, r) => a + (r[k] as number), 0)
   const t = plan.strategy?.targets ?? {}
   const target = (k: string) => (typeof t[k] === 'number' && t[k] > 0 ? t[k] : null)
@@ -55,7 +57,8 @@ export async function scorecard(planId: number) {
       published: sum('published'), signups: sum('signups'), purchases: sum('purchases'),
       seen: sum('seen'), engaged: sum('engaged'), clicks: sum('clicks'), followers: f.gained, github_stars: stars,
     } as Numbers,
-    targets: Object.fromEntries(TARGET_KEYS.map(k => [k, target(k)])) as Record<(typeof TARGET_KEYS)[number], number | null>,
+    // A plan without a stars target still shows the product's 1-month stars goal.
+    targets: Object.fromEntries(TARGET_KEYS.map(k => [k, target(k) ?? (k === 'github_stars' && starGoal > 0 ? starGoal : null)])) as Record<(typeof TARGET_KEYS)[number], number | null>,
     byTheme, byChannel, elapsedDays: Math.max(0, plan.elapsed), totalDays: plan.total,
   }
 }

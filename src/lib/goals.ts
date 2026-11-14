@@ -50,7 +50,9 @@ export async function repoStars(repo: string): Promise<number | null> {
 
 export async function saveSnapshot(source: string, metric: string, value: number) {
   await sql`insert into counter_snapshots (source, metric, day, value) values (${source}, ${metric}, current_date, ${value})
-    on conflict (source, metric, day) do update set value = excluded.value`
+    on conflict (source, metric, day) do update set value = excluded.value
+    -- The first day is the baseline: keep its first reading, or that day's gains would vanish from the count.
+    where counter_snapshots.day > (select min(day) from counter_snapshots s where s.source = excluded.source and s.metric = excluded.metric)`
 }
 
 /** Read every goal's outside counter (GitHub stars). At most hourly. Never throws. */
