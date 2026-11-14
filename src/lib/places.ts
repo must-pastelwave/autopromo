@@ -12,7 +12,12 @@ export const AUTO_KINDS = ['telegram', 'discord', 'mastodon', 'bluesky']
 export const ONE_TIME_KINDS = ['hackernews', 'producthunt', 'list', 'newsletter']
 const appUrl = () => (process.env.APP_URL ?? '').replace(/\/$/, '')
 
-export const shareText = (caption: string, code: string) => `${caption}\n\n${appUrl()}/go/${code}`
+/** A share's text (written for its place and reviewed) with its tracked link. */
+export function shareText(text: string, code: string): string {
+  const link = `${appUrl()}/go/${code}`
+  // List entries carry the link inline: "[Name](LINK) - what it does."
+  return text.includes('(LINK)') ? text.replaceAll('(LINK)', `(${link})`) : `${text}\n\n${link}`
+}
 
 /** Make shares for places that are due one, then send the auto ones. Called by maintenance every few minutes. */
 export async function distribute(): Promise<void> {
@@ -36,15 +41,15 @@ export async function distribute(): Promise<void> {
 
 async function sendAutoShares(): Promise<void> {
   const todo = await sql`
-    select s.id, s.link_code, x.caption, pl.kind, pl.target
-    from shares s join places pl on pl.id = s.place_id join posts x on x.id = s.post_id
-    where s.status = 'todo' and pl.how = 'auto' and pl.target is not null and pl.status = 'approved'`
+    select s.id, s.link_code, s.text, pl.kind, pl.target
+    from shares s join places pl on pl.id = s.place_id
+    where s.status = 'todo' and s.text_status = 'ok' and pl.how = 'auto' and pl.target is not null and pl.status = 'approved'`
   for (const s of todo) {
     // Claim first, so two overlapping runs can't both send it.
     const [claimed] = await sql`update shares set status = 'posted', posted_at = now() where id = ${s.id} and status = 'todo' returning id`
     if (!claimed) continue
     try {
-      await sendDirect(s.kind, s.target, shareText(s.caption, s.link_code))
+      await sendDirect(s.kind, s.target, shareText(s.text, s.link_code))
     } catch (e) {
       await sql`update shares set status = 'failed', error = ${e instanceof Error ? e.message : String(e)} where id = ${s.id}`
     }
