@@ -13,7 +13,7 @@ curl -sS -X POST --variable %APP_URL --variable %AGENT_TOKEN --expand-header 'Au
   -H 'content-type: application/json' --data-binary @/tmp/body.json --expand-url '{{APP_URL}}/api/agent/posts'
 ```
 
-Shell `$VARIABLES`, pipes and other commands are blocked; only plain `curl` commands, Read, Write, Edit and WebFetch are allowed. Use the `--variable` form above exactly, save responses with `-o` and read them with Read.
+Shell `$VARIABLES`, pipes and other commands are blocked; only plain `curl` commands, Read, Write, Edit, WebFetch and WebSearch are allowed. Use the `--variable` form above exactly, save responses with `-o` and read them with Read.
 
 | Call | Use |
 |---|---|
@@ -31,6 +31,8 @@ Shell `$VARIABLES`, pipes and other commands are blocked; only plain `curl` comm
 | `GET /api/agent/scorecard?plan_id=<id>` | the plan's results so far vs its targets, by theme and channel |
 | `PUT /api/agent/products/<id>/profile` | the researcher's guess at name, audience, language, tone, banned words |
 | `GET /api/agent/photos?q=<english query>&n=5` | licensed stock photos `{url, credit, track}` |
+| `GET /api/agent/places?product_id=<id>` | communities known for the product (suggested, approved, rejected) with people and sign-ups each brought |
+| `POST /api/agent/places` `{product_id, places:[{name, url, kind, members, rules, why}]}` | the scout's suggestions |
 | `POST /api/agent/maintenance` | call once at the very end of every run |
 
 Write JSON bodies to a file with Write and send with `--data-binary @file` so Korean text and quotes survive. If a call returns 4xx, read the error, fix the body, and retry once. Don't loop.

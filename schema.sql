@@ -121,8 +121,28 @@ insert into channels (product_id, platform, automatable)
   where not exists (select 1 from channels c where c.product_id = p.id and c.platform = x.platform);
 -- A person, counted once per post: a one-way hash of IP + browser (no raw IP kept). Old clicks have none.
 alter table clicks add column if not exists visitor text;
-create unique index if not exists clicks_post_visitor on clicks(post_id, visitor);
 -- Channels dropped on 2026-11-14. Ones with posts stay (history), switched off; the app hides them.
 update channels set enabled = false where platform in ('instagram','facebook','x','youtube','bluesky','naver_blog','naver_cafe','hackernews');
 delete from channels c where platform in ('instagram','facebook','x','youtube','bluesky','naver_blog','naver_cafe','hackernews')
   and not exists (select 1 from posts x where x.channel_id = c.id);
+
+-- Places: communities beyond our own channels (Telegram/Discord groups, subreddits, forums, newsletters...).
+-- The scout suggests them, the owner approves. 'auto' places post by themselves (their admin added our bot or gave a webhook);
+-- 'paste' places get the post on the Places page for the owner to paste there.
+create table if not exists places (
+  id serial primary key, product_id int not null references products on delete cascade,
+  name text not null, url text not null, kind text not null,
+  how text not null default 'paste' check (how in ('auto','paste')),
+  target text,   -- auto places: Telegram chat id or Discord webhook URL
+  members int, rules text not null default '', why text not null default '', per_week int not null default 1,
+  status text not null default 'suggested' check (status in ('suggested','approved','rejected')),
+  created_at timestamptz not null default now(), unique (product_id, url));
+-- One published post shared to one place, with its own tracked link, so people are counted per place.
+create table if not exists shares (
+  id serial primary key, post_id int not null references posts, place_id int not null references places on delete cascade,
+  link_code text unique not null, status text not null default 'todo' check (status in ('todo','posted','skipped','failed')),
+  error text, created_at timestamptz not null default now(), posted_at timestamptz, unique (post_id, place_id));
+alter table clicks add column if not exists share_id int references shares on delete set null;
+-- A person counts once per post and place (share_id 0 = our own channel).
+drop index if exists clicks_post_visitor;
+create unique index if not exists clicks_person on clicks(post_id, (coalesce(share_id, 0)), visitor);

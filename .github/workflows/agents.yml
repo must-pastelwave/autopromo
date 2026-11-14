@@ -13,13 +13,14 @@ on:
     - cron: "0 22 * * *"   # writer:   daily 07:00 KST
     - cron: "0 23 * * *"   # reviewer: daily 08:00 KST
     - cron: "0 11 * * 0"   # analyst:  Sun 20:00 KST
+    - cron: "0 0 * * 1"    # scout:    Mon 09:00 KST, finds communities to share posts in
   workflow_dispatch:
     inputs:
       agent:
         description: Which agent to run now (auto = whatever the products need)
         type: choice
         default: auto
-        options: [auto, researcher, planner, writer, reviewer, analyst]
+        options: [auto, researcher, planner, writer, reviewer, analyst, scout]
 
 permissions:
   contents: read
@@ -45,6 +46,7 @@ jobs:
             "0 22 * * *") jobs="writer" ;;
             "0 23 * * *") jobs="reviewer" ;;
             "0 11 * * 0") jobs="analyst" ;;
+            "0 0 * * 1") jobs="scout" ;;
             *) jobs="${{ inputs.agent || 'auto' }}" ;;
           esac
           research=""; plan=""; kickoff=""
@@ -61,7 +63,7 @@ jobs:
           fi
           jobs=$(echo $jobs)
           turns=0
-          for j in $jobs; do case $j in researcher|planner) turns=$((turns+40));; writer) turns=$((turns+80));; reviewer) turns=$((turns+50));; *) turns=$((turns+20));; esac; done
+          for j in $jobs; do case $j in researcher|planner|scout) turns=$((turns+40));; writer) turns=$((turns+80));; reviewer) turns=$((turns+50));; *) turns=$((turns+20));; esac; done
           echo "Jobs: ${jobs:-none}"
           {
             echo "jobs=$jobs"; echo "turns=$turns"
@@ -94,7 +96,7 @@ jobs:
           claude_args: |
             --model ${{ vars.AGENT_MODEL || 'claude-opus-5-5' }}
             --max-turns ${{ steps.pick.outputs.turns }}
-            --allowedTools "Read,Write,Edit,Glob,Grep,WebFetch,Bash(curl:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Bash(curl:*)"
 
       # Record the attempt even if the agent failed, so the 15-minute check waits 3 hours before trying again.
       - name: Record what ran
