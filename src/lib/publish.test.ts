@@ -328,3 +328,11 @@ async function scheduledZernioPost() {
   const p = await insertPost(productId, channelId, { status: 'scheduled', zernio_post_id: 'z-old', scheduled_for: new Date(Date.now() + 86400_000) })
   return { postId: p.id as number }
 }
+
+test('a stale Zernio account ("does not belong to this user") flags the channel for reconnecting', async () => {
+  const { productId, channelId } = await seed()
+  const p = await insertPost(productId, channelId, { status: 'passed' })
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: 'One or more accounts do not belong to this user: acc1' }, { status: 403 })))
+  await publish(p.id)
+  expect((await sql`select needs_reconnect from channels where id = ${channelId}`)[0].needs_reconnect).toBe(true)
+})
