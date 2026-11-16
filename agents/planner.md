@@ -44,6 +44,7 @@ For each of those products:
    - Each item: `{day: "YYYY-MM-DD", platform, format, theme, topic, angle, facts: [fact sheet indexes]}`. `format` is fixed by the platform: instagram `carousel`; youtube and tiktok `video`; naver_blog, naver_cafe, reddit, hackernews `draft`; everything else `post`.
    - `topic` says what the post is about; `angle` says how (the hook, the question it answers, what the reader takes away). Specific enough that a writer could write it without guessing.
    - Every claim the item needs must be in the fact sheet; list those indexes in `facts`. If a topic needs a fact the sheet doesn't have, drop the topic.
+   - **TikTok and YouTube run as series**, so one video brings viewers to the next. Group their items into series of 3–5 parts on one theme, one part a day on consecutive days per channel (both channels may carry the same series). `topic`: `Part 2/4: <what this part shows>`. `angle`: the hook, and how the video ends: the next part's promise (`ends: tomorrow part 3 shows …`), or for the last part, the call to action. Part 1 stands alone for someone who never sees the rest; later parts open with a one-line recap. When a series ends, the next one starts.
    - Spread items across the week; don't post the same topic on two channels the same day unless the channels' audiences differ.
 5. `PUT /api/agent/products/<id>/plan` with `{strategy, items}`. A 400 tells you what to fix; fix it and send again once.
 6. Report: products planned, and for a revision, what you changed in response to the feedback.
