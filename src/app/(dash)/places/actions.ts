@@ -56,11 +56,22 @@ export async function addPlace(f: FormData) {
   back(r.added ? 'Place added.' : 'That place is already on the list.')
 }
 
-/** The owner pasted a share (or skipped it). */
+const link = (f: FormData) => (/^https?:\/\/\S+$/.test(s(f, 'post_url')) ? s(f, 'post_url') : null)
+
+/** The owner pasted a share (with the link to where it went up), or skipped it. */
 export async function markShare(f: FormData) {
   await requireOwner()
   const status = s(f, 'outcome') === 'posted' ? 'posted' : 'skipped'
-  await sql`update shares set status = ${status}, posted_at = case when ${status} = 'posted' then now() end where id = ${id(f)} and status = 'todo'`
+  await sql`update shares set status = ${status}, posted_at = case when ${status} = 'posted' then now() end,
+    post_url = ${status === 'posted' ? link(f) : null} where id = ${id(f)} and status = 'todo'`
+  revalidatePath('/places')
+}
+
+/** Views of a share posted by hand, as the platform shows them (Reddit, HN and the like don't report them to us). */
+export async function setShareViews(f: FormData) {
+  await requireOwner()
+  const v = Math.max(0, Math.round(Number(s(f, 'views')) || 0))
+  await sql`update shares set views = ${v}, post_url = coalesce(${link(f)}, post_url) where id = ${id(f)} and status = 'posted'`
   revalidatePath('/places')
 }
 

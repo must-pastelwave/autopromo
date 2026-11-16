@@ -151,3 +151,6 @@ alter table shares add column if not exists text text;
 alter table shares add column if not exists text_status text not null default 'needed';
 alter table shares add column if not exists review_reason text;
 alter table shares add column if not exists revision int not null default 0;
+-- Shares posted by hand: the post's link and its views, typed in by the owner (platforms like Reddit don't report them to us).
+alter table shares add column if not exists post_url text;
+alter table shares add column if not exists views int;

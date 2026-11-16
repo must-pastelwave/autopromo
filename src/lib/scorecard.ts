@@ -44,6 +44,9 @@ export async function scorecard(planId: number) {
           (select followers from follower_counts fc where fc.channel_id = c.id order by day limit 1)) as base_f
       from channels c where c.product_id = ${plan.product_id} and c.enabled) x
     where now_f is not null and base_f is not null`
+  // Views typed in for shares posted by hand (Reddit, HN...): the platforms don't report them, so Zernio never sees them.
+  const [hand] = await sql`select coalesce(sum(s.views), 0)::int as seen from shares s join posts x on x.id = s.post_id
+    join plan_items i on i.id = x.plan_item_id where i.plan_id = ${planId} and s.status = 'posted'`
   let stars = 0, starsTotal = 0, starGoal = 0
   for (const g of await sql`select source, max(target_1m) as m1 from goals where product_id = ${plan.product_id} and metric = 'github_stars' group by source`) {
     const m = await measure(plan.product_id, 'github_stars', g.source, plan.starts_on)
@@ -57,7 +60,7 @@ export async function scorecard(planId: number) {
   return {
     totals: {
       published: sum('published'), signups: sum('signups'), purchases: sum('purchases'),
-      seen: sum('seen'), engaged: sum('engaged'), clicks: sum('clicks'), followers: f.gained, github_stars: stars,
+      seen: sum('seen') + hand.seen, engaged: sum('engaged'), clicks: sum('clicks'), followers: f.gained, github_stars: stars,
     } as Numbers,
     // A plan without a stars target still shows the product's 1-month stars goal.
     targets: Object.fromEntries(TARGET_KEYS.map(k => [k, target(k) ?? (k === 'github_stars' && starGoal > 0 ? starGoal : null)])) as Record<(typeof TARGET_KEYS)[number], number | null>,
