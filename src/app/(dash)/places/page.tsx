@@ -7,7 +7,7 @@ import { addPlace, connectPlace, findPlaces, markShare, setPerWeek, setPlaceStat
 
 const PLACEHOLDER: Record<string, string> = {
   telegram: 'Chat id (our bot must be in it)', discord: 'Webhook URL or channel id',
-  mastodon: 'https://mastodon.social <access token>', bluesky: 'you.bsky.social <app password>',
+  mastodon: 'https://mastodon.social <access token>', bluesky: 'you.bsky.social <app password>', devto: 'Dev.to API key',
 }
 const num = (n: number | null) => (n == null ? '—' : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n))
 
@@ -76,7 +76,7 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
                       <input name="target" placeholder={PLACEHOLDER[x.kind]} aria-label={`Connect ${x.name}`} style={{ width: 220 }} />
                       <button type="submit" className="ghost">Save</button>
                     </form>
-                    <div className="muted">{['mastodon', 'bluesky'].includes(x.kind) ? 'Your own account on it. ' : `Only after the admin agrees: they add our bot${x.kind === 'discord' ? ' or give you a webhook' : ''}. `}Leave empty to go back to pasting.</div>
+                    <div className="muted">{['mastodon', 'bluesky', 'devto'].includes(x.kind) ? 'Your own account on it. ' : `Only after the admin agrees: they add our bot${x.kind === 'discord' ? ' or give you a webhook' : ''}. `}Leave empty to go back to pasting.</div>
                   </details>
                 )}
               </td>
@@ -112,8 +112,8 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
       <details style={{ marginTop: 8 }}>
         <summary>What&apos;s possible</summary>
         <p className="muted">
-          <b>By itself:</b> Telegram and Discord places whose admin added our bot or gave a webhook, and your own Mastodon and Bluesky accounts (add them as a place).<br />
-          <b>You paste (about a minute):</b> subreddits, Hacker News, Product Hunt, Indie Hackers, self-promo channels in Discord servers, public Telegram groups, Facebook groups, Naver cafés, KakaoTalk open chats, forums, newsletters.<br />
+          <b>By itself (the only kind that gets posts):</b> Telegram and Discord places whose admin added our bot or gave a webhook, and your own Mastodon, Bluesky and Dev.to accounts (add them as a place). Dev.to shows articles to everyone following their tags, so it reaches people even from a new account.<br />
+          <b>Not posted to:</b> subreddits, Hacker News, Product Hunt, forums and other places where only a person may post. Posting there by hand is up to you; autopromo doesn&apos;t queue it.<br />
           <b>Never:</b> automating your own account to post in other people&apos;s groups, posting in channels we don&apos;t admin, mass DMs, auto-joining or auto-commenting. Accounts get banned for these.
         </p>
       </details>

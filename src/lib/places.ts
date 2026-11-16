@@ -1,13 +1,14 @@
 import { sql } from './db'
 import { newCode, trackedUrl } from './links'
-import { checkBluesky, checkDiscord, checkMastodon, checkTelegram, discordWebhookFor, isDiscordChannelId, sendDirect } from './direct'
+import { checkBluesky, checkDevto, checkDiscord, checkMastodon, checkTelegram, discordWebhookFor, isDiscordChannelId, sendDirect } from './direct'
 
 /**
  * Places: communities beyond our own channels. Each approved place gets our recent published posts, up to its
- * per_week, each with its own tracked link (a share). 'auto' places are sent here; 'paste' places wait on the Places page.
+ * per_week, each with its own tracked link (a share). Only 'auto' places get shares: posting is never left to a person.
+ * Shares made for 'paste' places before that stay on the Places page.
  */
 
-export const AUTO_KINDS = ['telegram', 'discord', 'mastodon', 'bluesky']
+export const AUTO_KINDS = ['telegram', 'discord', 'mastodon', 'bluesky', 'devto']
 // Launches and listings take one post, ever: a second Show HN or Product Hunt launch of the same thing is spam.
 export const ONE_TIME_KINDS = ['hackernews', 'producthunt', 'list', 'newsletter']
 const appUrl = () => (process.env.APP_URL ?? '').replace(/\/$/, '')
@@ -33,9 +34,8 @@ export async function distribute(): Promise<void> {
         and not exists (select 1 from shares s where s.post_id = x.id and s.place_id = pl.id)
       order by (x.kind = 'text') desc, x.created_at desc limit 1) as post_id
     from places pl
-    where pl.status = 'approved' and (pl.how = 'paste' or pl.target is not null)
-      and (select count(*) from shares s where s.place_id = pl.id and s.created_at > now() - interval '7 days') < pl.per_week
-      and not (pl.kind = any(${ONE_TIME_KINDS}) and exists (select 1 from shares s where s.place_id = pl.id))`
+    where pl.status = 'approved' and pl.how = 'auto' and pl.target is not null
+      and (select count(*) from shares s where s.place_id = pl.id and s.created_at > now() - interval '7 days') < pl.per_week`
   for (const d of due) {
     if (d.post_id) await sql`insert into shares (post_id, place_id, link_code) values (${d.post_id}, ${d.place_id}, ${newCode()}) on conflict do nothing`
   }
@@ -61,12 +61,12 @@ async function sendAutoShares(): Promise<void> {
 
 /** Connect an auto place: a Telegram chat our bot is in, a Discord channel (bot) or webhook, or our Mastodon / Bluesky login. Returns the target or what's wrong. */
 export async function placeTarget(kind: string, input: string): Promise<{ target?: string; problem?: string }> {
-  if (!AUTO_KINDS.includes(kind)) return { problem: 'Only Telegram, Discord, Mastodon and Bluesky places can post by themselves.' }
+  if (!AUTO_KINDS.includes(kind)) return { problem: 'Only Telegram, Discord, Mastodon, Bluesky and Dev.to places can post by themselves.' }
   let target = input.trim()
   if (kind === 'discord' && isDiscordChannelId(target)) {
     try { target = await discordWebhookFor(target) } catch (e) { return { problem: e instanceof Error ? e.message : String(e) } }
   }
-  const check = { telegram: checkTelegram, discord: checkDiscord, mastodon: checkMastodon, bluesky: checkBluesky }[kind]!
+  const check = { telegram: checkTelegram, discord: checkDiscord, mastodon: checkMastodon, bluesky: checkBluesky, devto: checkDevto }[kind]!
   const problem = await check(target)
   return problem ? { problem } : { target }
 }

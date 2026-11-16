@@ -17,4 +17,5 @@ For each product:
    - 2 experiments for next week
    - any posting-time pattern, if the data shows one
 6. `PUT /api/agent/products/<id>/playbook`.
-7. `POST /api/agent/maintenance`.
+7. After all products: one Slack report for the team, `POST /api/agent/report` with `{text}`, in English, plain text, at most 12 lines, no lines starting with ">". Per product: posts out this week, views, people who clicked, sign-ups (only if the site reports them), GitHub stars today and gained (for star goals), and the goals' progress; then one line on what worked and one on what changes next week. Only numbers from the API; leave out anything not measured.
+8. `POST /api/agent/maintenance`.

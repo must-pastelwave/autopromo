@@ -31,7 +31,7 @@ test('places: suggested → approved → each gets the newest post with its own 
   await distribute()
   expect((await sql`select count(*)::int as n from shares`)[0].n).toBe(0)   // nothing until the owner approves
 
-  await sql`update places set status = 'approved'`
+  await sql`update places set status = 'approved', how = 'auto', target = 'x'`
   await distribute()
   await distribute()   // runs again: one share per place, not two
   const shares = await sql`select s.*, pl.kind from shares s join places pl on pl.id = s.place_id order by pl.id`
@@ -84,15 +84,13 @@ test('auto places post by themselves, once; per_week caps how often a place gets
   expect((await sql`select post_id from shares order by id`).map(r => r.post_id)).toEqual([newer.id, older.id])
 })
 
-test('launches and listings (Show HN, Product Hunt, lists) get one post, ever', async () => {
+test('places only a person can post in (paste) get no shares', async () => {
   const { productId, channelId } = await seed()
-  await insertPost(productId, channelId, { status: 'published', scheduled_for: new Date(Date.now() - 86400_000) })
-  await insertPost(productId, channelId, { status: 'published', scheduled_for: new Date() })
+  await insertPost(productId, channelId, { status: 'published', created_at: new Date() })
   await suggestPlaces(productId, [{ name: 'Show HN', url: 'https://news.ycombinator.com/show', kind: 'hackernews' }])
-  await sql`update places set status = 'approved', per_week = 5`
+  await sql`update places set status = 'approved'`
   await distribute()
-  await distribute()
-  expect((await sql`select count(*)::int as n from shares`)[0].n).toBe(1)
+  expect((await sql`select count(*)::int as n from shares`)[0].n).toBe(0)
 })
 
 test('share text: a banned word skips it; list entries get the link inline', async () => {
@@ -100,7 +98,7 @@ test('share text: a banned word skips it; list entries get the link inline', asy
   await insertPost(productId, channelId, { status: 'published', created_at: new Date() })
   await sql`update products set banned_words = ${['공짜']} where id = ${productId}`
   await suggestPlaces(productId, [{ name: 'Travel forum', url: 'https://forum.test/travel', kind: 'forum' }])
-  await sql`update places set status = 'approved'`
+  await sql`update places set status = 'approved', how = 'auto', target = 'x'`
   await distribute()
   const [s] = await sql`select id from shares`
   expect(await (await call(writeShare, s.id, { text: '공짜 여행' })).json()).toEqual({ ok: false, banned: ['공짜'] })
@@ -116,7 +114,7 @@ test('a blocked share goes back to the writer once with the reason, then is skip
   const { productId, channelId } = await seed()
   await insertPost(productId, channelId, { status: 'published', created_at: new Date() })
   await suggestPlaces(productId, [{ name: 'Forum', url: 'https://forum.test/a', kind: 'forum' }])
-  await sql`update places set status = 'approved'`
+  await sql`update places set status = 'approved', how = 'auto', target = 'x'`
   await distribute()
   const [{ id }] = await sql`select id from shares`
   await call(writeShare, id, { text: 'first try' })
@@ -131,7 +129,7 @@ test('the writer can skip a share it cannot write within the rules', async () =>
   const { productId, channelId } = await seed()
   await insertPost(productId, channelId, { status: 'published', created_at: new Date() })
   await suggestPlaces(productId, [{ name: 'Strict sub', url: 'https://reddit.test/r/strict', kind: 'reddit' }])
-  await sql`update places set status = 'approved'`
+  await sql`update places set status = 'approved', how = 'auto', target = 'x'`
   await distribute()
   const [{ id }] = await sql`select id from shares`
   expect((await call(writeShare, id, { skip: 'needs a real prompt' })).status).toBe(200)

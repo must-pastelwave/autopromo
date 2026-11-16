@@ -2,7 +2,7 @@ import { test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { sql } from './db'
 import { publish, runMaintenance } from './publish'
 import { resetDb, seed, insertPost } from '@/test/db'
-import { checkBluesky, checkDiscord, checkMastodon, checkTelegram, discordChannels, fit, discordInvite, discordWebhookFor, sendDirect, telegramChats, validDiscordWebhook } from './direct'
+import { checkBluesky, checkDevto, devtoArticle, checkDiscord, checkMastodon, checkTelegram, discordChannels, fit, discordInvite, discordWebhookFor, sendDirect, telegramChats, validDiscordWebhook } from './direct'
 import { GET as go } from '@/app/go/[code]/route'
 
 const HOOK = 'https://discord.com/api/webhooks/123456789012/abcdefghijklmnopqrstuvwxyz_-0123'
@@ -237,4 +237,20 @@ test('mastodon and bluesky: long text is shortened, the link kept whole; bluesky
   expect(await checkMastodon('https://fosstodon.org tokentokentokentokentoken')).toBeNull()
   expect(await checkMastodon('fosstodon token')).toMatch(/space between/)
   expect(await checkBluesky('me.bsky.social mypassword')).toMatch(/app password/)
+})
+
+test('dev.to: title from the first line, up to 4 tags, AI note added; key checked', async () => {
+  const a = devtoArticle('# Why agents oversell stock\n\nTwenty buyers, five items.\n\nTags: AI, node.js, postgres, webdev, extra\n\nhttps://app.test/go/abc')
+  expect(a.title).toBe('Why agents oversell stock')
+  expect(a.tags).toEqual(['ai', 'nodejs', 'postgres', 'webdev'])
+  expect(a.body_markdown).toBe('Twenty buyers, five items.\n\n\nhttps://app.test/go/abc\n\n*Written with help from AI.*')
+  expect(a.published).toBe(true)
+
+  const f = stub(url => url.endsWith('/articles') ? Response.json({ id: 123 }) : Response.json({ id: 1 }))
+  expect(await sendDirect('devto', 'abcdefghijkl1234', '# T\n\nbody')).toBe('123')
+  const [url, init] = f.mock.calls[0] as unknown as Call
+  expect(url).toBe('https://dev.to/api/articles')
+  expect((init.headers as Record<string, string>)['api-key']).toBe('abcdefghijkl1234')
+  expect(await checkDevto('abcdefghijkl1234')).toBeNull()
+  expect(await checkDevto('bad key with spaces')).toMatch(/Settings/)
 })
