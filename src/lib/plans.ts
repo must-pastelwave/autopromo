@@ -2,7 +2,7 @@ import { sql } from './db'
 
 export const PLAN_DAYS = 28
 /** The channels we use. Others (instagram, facebook, x, youtube, bluesky, naver, hackernews) were dropped on 2026-11-14. */
-export const AUTOMATABLE = ['threads', 'tiktok', 'linkedin', 'telegram', 'discord']
+export const AUTOMATABLE = ['threads', 'tiktok', 'linkedin', 'telegram', 'discord', 'devto']
 export const DRAFTS_ONLY = ['reddit']
 export const PLATFORMS = [...AUTOMATABLE, ...DRAFTS_ONLY]
 

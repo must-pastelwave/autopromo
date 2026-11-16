@@ -17,7 +17,8 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
   if (!Number.isInteger(b.product_id) || !Number.isInteger(b.channel_id)) return 'product_id and channel_id must be integers'
   if (!str(b.client_key, 200)) return 'client_key required'
   if (!['carousel', 'text', 'video'].includes(b.kind)) return "kind must be 'carousel', 'text' or 'video'"
-  if (!str(b.caption, 2200)) return 'caption required (max 2200 chars)'
+  const max = ctx.platform === 'devto' ? 15000 : 2200   // a Dev.to post is a whole article
+  if (!str(b.caption, max)) return `caption required (max ${max} chars)`
   if (!str(b.topic, 200) || !str(b.format_tag, 100)) return 'topic and format_tag required'
   const slides = b.slides ?? []
   if (!Array.isArray(slides)) return 'slides must be an array'
