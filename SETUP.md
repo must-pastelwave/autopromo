@@ -43,7 +43,7 @@ These post directly, so they don't use Zernio accounts. Clicks on their links ar
 
 Both are checked when you save: the app confirms the bot can post, or that the webhook exists.
 
-- **Dev.to**: at dev.to → Settings → Extensions → "DEV Community API Keys", make a key. On Places → Add a place: name "Dev.to", link to your Dev.to profile, kind `devto`; then under In use → Post by itself, paste the key. The writer turns posts into articles, one a week by default. Dev.to shows articles to people following their tags, so they reach people even from a new account.
+- **Dev.to**: at dev.to → Settings → Extensions → "DEV Community API Keys", make a key. In Channels, switch **devto** on and paste the key once; every article for that product uses it. The planner puts in about one article a week. Dev.to shows articles to people following their tags, so they reach people even from a new account.
 - **Weekly report in Slack**: in Slack, add an Incoming Webhook to your team channel and copy its URL into `SLACK_WEBHOOK_URL` in Vercel (then redeploy). The analyst posts there every Sunday evening.
 
 ## 3. Add your product

@@ -36,7 +36,7 @@ For each of those products:
    - `goal`: the one outcome this plan works toward (the call to action the site itself asks for).
    - `cta`: the one call to action every post points to.
    - `audience`: who, concretely.
-   - `channels`: the product's **enabled** channels you will use, each with `why` and `per_week`. Use only enabled channels; never more than the channel's `per_day` on a day.
+   - `channels`: the product's **enabled** channels you will use, each with `why` and `per_week`. Use only enabled channels; never more than the channel's `per_day` on a day. **devto** takes whole articles: at most one a week, on the theme with the most to teach.
    - `themes`: 3–5 content pillars, each with `why` (the audience's question it answers) and `hook` (the hook formula from the social skill that fits it).
    - `rules`: the 3–8 rules that matter most for this product (from `tone_notes`, `banned_words` and common.md), in plain words.
 4. Lay out the calendar for all 28 days:

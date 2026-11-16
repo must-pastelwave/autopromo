@@ -161,7 +161,7 @@ export async function runMaintenance(): Promise<void> {
 
   const retry = await sql`
     select id from posts where status = 'failed'
-      and error is not null and error not like 'retried:%' and error !~ '^(zernio|telegram|discord) 4[0-9][0-9]'`
+      and error is not null and error not like 'retried:%' and error !~ '^(zernio|telegram|discord|devto) 4[0-9][0-9]'`
   // Only posts that already got past approval can be 'failed', so the retry counts as approved.
   for (const r of retry) await publish(r.id, { retry: true, approved: true })
 

@@ -1,6 +1,6 @@
 import { sql } from './db'
 import { newCode, trackedUrl } from './links'
-import { checkBluesky, checkDevto, checkDiscord, checkMastodon, checkTelegram, discordWebhookFor, isDiscordChannelId, sendDirect } from './direct'
+import { checkBluesky, checkDiscord, checkMastodon, checkTelegram, discordWebhookFor, isDiscordChannelId, sendDirect } from './direct'
 
 /**
  * Places: communities beyond our own channels. Each approved place gets our recent published posts, up to its
@@ -8,7 +8,7 @@ import { checkBluesky, checkDevto, checkDiscord, checkMastodon, checkTelegram, d
  * Shares made for 'paste' places before that stay on the Places page.
  */
 
-export const AUTO_KINDS = ['telegram', 'discord', 'mastodon', 'bluesky', 'devto']
+export const AUTO_KINDS = ['telegram', 'discord', 'mastodon', 'bluesky']
 // Launches and listings take one post, ever: a second Show HN or Product Hunt launch of the same thing is spam.
 export const ONE_TIME_KINDS = ['hackernews', 'producthunt', 'list', 'newsletter']
 const appUrl = () => (process.env.APP_URL ?? '').replace(/\/$/, '')
@@ -61,12 +61,12 @@ async function sendAutoShares(): Promise<void> {
 
 /** Connect an auto place: a Telegram chat our bot is in, a Discord channel (bot) or webhook, or our Mastodon / Bluesky login. Returns the target or what's wrong. */
 export async function placeTarget(kind: string, input: string): Promise<{ target?: string; problem?: string }> {
-  if (!AUTO_KINDS.includes(kind)) return { problem: 'Only Telegram, Discord, Mastodon, Bluesky and Dev.to places can post by themselves.' }
+  if (!AUTO_KINDS.includes(kind)) return { problem: 'Only Telegram, Discord, Mastodon and Bluesky places can post by themselves.' }
   let target = input.trim()
   if (kind === 'discord' && isDiscordChannelId(target)) {
     try { target = await discordWebhookFor(target) } catch (e) { return { problem: e instanceof Error ? e.message : String(e) } }
   }
-  const check = { telegram: checkTelegram, discord: checkDiscord, mastodon: checkMastodon, bluesky: checkBluesky, devto: checkDevto }[kind]!
+  const check = { telegram: checkTelegram, discord: checkDiscord, mastodon: checkMastodon, bluesky: checkBluesky }[kind]!
   const problem = await check(target)
   return problem ? { problem } : { target }
 }

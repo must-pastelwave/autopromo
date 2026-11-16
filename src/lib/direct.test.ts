@@ -18,7 +18,7 @@ const tgOk = () => stub(() => Response.json({ ok: true, result: { message_id: 42
 const bodyOf = (c: Call) => JSON.parse(String(c[1].body))
 const get = async (id: number) => (await sql`select * from posts where id = ${id}`)[0]
 
-async function directPost(platform: 'telegram' | 'discord', target: string) {
+async function directPost(platform: 'telegram' | 'discord' | 'devto', target: string) {
   const { productId, channelId } = await seed({ platform, account: null })
   await sql`update channels set target = ${target} where id = ${channelId}`
   const p = await insertPost(productId, channelId)
@@ -253,4 +253,18 @@ test('dev.to: title from the first line, up to 4 tags, AI note added; key checke
   expect((init.headers as Record<string, string>)['api-key']).toBe('abcdefghijkl1234')
   expect(await checkDevto('abcdefghijkl1234')).toBeNull()
   expect(await checkDevto('bad key with spaces')).toMatch(/Settings/)
+})
+
+test('dev.to channel: the key saved once posts every article when its slot comes, link and AI note included', async () => {
+  const { p } = await directPost('devto', 'abcdefghijkl1234')
+  await sql`update posts set caption = ${'# Why agents oversell\n\nTwenty buyers.\n\nTags: ai, node'} where id = ${p.id}`
+  const f = stub(() => Response.json({ id: 77 }))
+  await publish(p.id)
+  await makeDue(p.id)
+  await runMaintenance()
+  expect((await get(p.id)).status).toBe('published')
+  const [url, init] = f.mock.calls[0] as unknown as Call
+  expect(url).toBe('https://dev.to/api/articles')
+  expect(bodyOf([url, init]).article).toMatchObject({ title: 'Why agents oversell', tags: ['ai', 'node'], published: true })
+  expect(bodyOf([url, init]).article.body_markdown).toContain(`https://app.test/go/${p.link_code}`)
 })

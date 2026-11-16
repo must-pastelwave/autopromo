@@ -154,3 +154,7 @@ alter table shares add column if not exists revision int not null default 0;
 -- Shares posted by hand: the post's link and its views, typed in by the owner (platforms like Reddit don't report them to us).
 alter table shares add column if not exists post_url text;
 alter table shares add column if not exists views int;
+-- Dev.to: our own account, posted to directly with its API key (channels.target). Articles reach people following their tags.
+insert into channels (product_id, platform, automatable)
+  select p.id, 'devto', true from products p
+  where not exists (select 1 from channels c where c.product_id = p.id and c.platform = 'devto');

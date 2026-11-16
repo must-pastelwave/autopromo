@@ -49,6 +49,14 @@ export async function ChannelsSection({ p }: { p: Record<string, any> }) {
           : 'Paste a webhook URL: channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL.'}</div>}
       </form>
     )
+    if (c.platform === 'devto') return (
+      <form action={setDirectTarget} className="row">
+        <input type="hidden" name="id" value={c.id} />
+        <input name="target" type="password" autoComplete="off" placeholder={c.target ? 'Connected (key saved)' : 'Dev.to API key'} aria-label="Dev.to API key" style={{ width: 210 }} />
+        <button type="submit" className="ghost">{c.target ? 'Change' : 'Connect'}</button>
+        {!c.target && <div className="muted">dev.to → Settings → Extensions → DEV Community API Keys. Every article for this product uses it.</div>}
+      </form>
+    )
     if (!c.automatable) return <span className="muted">You post it yourself from Waiting.</span>
     const mine = accounts.filter(a => a.platform === zernioPlatform(c.platform) || a._id === c.zernio_account_id)
     return (<>

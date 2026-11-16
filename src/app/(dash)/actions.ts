@@ -11,7 +11,7 @@ import { requestRun } from '@/lib/runs'
 import { retryPost } from '@/lib/retry'
 import { parseGoals, repoStars, saveSnapshot } from '@/lib/goals'
 import { AUTOMATABLE, DRAFTS_ONLY } from '@/lib/plans'
-import { checkDiscord, checkTelegram, discordWebhookFor, isDiscordChannelId } from '@/lib/direct'
+import { checkDevto, checkDiscord, checkTelegram, discordWebhookFor, isDiscordChannelId } from '@/lib/direct'
 
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
@@ -128,20 +128,20 @@ export async function setChannelAccount(f: FormData) {
   revalidatePath('/')
 }
 
-/** Connect a Telegram channel (our bot must be its admin) or a Discord webhook. Checked before saving, so a saved channel can post. */
+/** Connect a Telegram channel (our bot must be its admin), a Discord webhook or a Dev.to API key. Checked before saving, so a saved channel can post. */
 export async function setDirectTarget(f: FormData) {
   await requireOwner()
   const id = Number(s(f, 'id'))
   const [c] = await sql`select platform from channels where id = ${id}`
-  if (!c || !['telegram', 'discord'].includes(c.platform)) back('Unknown channel', 'channels')
+  if (!c || !['telegram', 'discord', 'devto'].includes(c.platform)) back('Unknown channel', 'channels')
   let target = s(f, 'target')
   // A Discord channel picked from the list: the bot makes the webhook, so the owner never copies a URL.
   if (c.platform === 'discord' && isDiscordChannelId(target)) target = await discordWebhookFor(target).catch(e => back(`discord: ${e.message}`, 'channels'))
-  const problem = c.platform === 'telegram' ? await checkTelegram(target) : await checkDiscord(target)
+  const problem = await ({ telegram: checkTelegram, discord: checkDiscord, devto: checkDevto } as Record<string, (t: string) => Promise<string | null>>)[c.platform](target)
   if (problem) back(`${c.platform}: ${problem}`, 'channels')
   await sql`update channels set target = ${target}, needs_reconnect = false where id = ${id}`
   revalidatePath('/')
-  back(`${c.platform === 'telegram' ? 'Telegram' : 'Discord'} connected. Waiting posts for it go out on the next run.`, 'channels')
+  back(`${{ telegram: 'Telegram', discord: 'Discord', devto: 'Dev.to' }[c.platform as string]} connected. Waiting posts for it go out on the next run.`, 'channels')
 }
 
 export async function resolveWaiting(f: FormData) {

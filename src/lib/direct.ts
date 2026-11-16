@@ -2,7 +2,7 @@
  * Channels we post to ourselves, without Zernio: Telegram (one autopromo bot, in each channel or group)
  * and Discord (one webhook per channel). Neither reports views or followers; clicks on our /go links are tracked as everywhere.
  */
-export const DIRECT = ['telegram', 'discord']
+export const DIRECT = ['telegram', 'discord', 'devto']
 export const isDirect = (platform: string) => DIRECT.includes(platform)
 
 export class DirectError extends Error {
