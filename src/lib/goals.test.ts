@@ -39,6 +39,7 @@ test('github stars: gain since the window start, or since the first reading', as
   expect(g.tracking.ok).toBe(true)
   expect(g.last30.value).toBe(30)   // 150 - 120 (the reading on the window's first day)
   expect(g.last90.value).toBe(50)   // 150 - 100 (first reading; started tracking 40 days ago)
+  expect(g.last30.total).toBe(150)  // today's count, shown next to the gain
 })
 
 test('the first day keeps its first reading as the baseline; later days take the newest', async () => {

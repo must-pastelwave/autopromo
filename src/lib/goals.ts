@@ -77,7 +77,7 @@ export async function syncCounters(o: { force?: boolean } = {}) {
  * How much of a metric this product got since `from` (a date). Counters (followers, stars) count the gain since
  * the last value on or before `from`, or since the first value we have; `since` says which day that was.
  */
-export async function measure(productId: number, metric: Metric, source: string, from: string): Promise<{ value: number; since: string | null }> {
+export async function measure(productId: number, metric: Metric, source: string, from: string): Promise<{ value: number; since: string | null; total?: number }> {
   const one = async (q: Promise<{ n: number }[]>) => ({ value: (await q)[0]?.n ?? 0, since: from })
   switch (metric) {
     case 'clicks':
@@ -111,7 +111,8 @@ export async function measure(productId: number, metric: Metric, source: string,
           b.value as base_v, b.day::text as since
         from (select value, day from counter_snapshots where source = ${source} and metric = 'github_stars'
           order by (day <= ${from}) desc, case when day <= ${from} then day end desc, day limit 1) b`
-      return r ? { value: r.now_v - r.base_v, since: r.since } : { value: 0, since: null }
+      // total: the repo's star count today, which is the number people report; value is the gain.
+      return r ? { value: r.now_v - r.base_v, since: r.since, total: r.now_v } : { value: 0, since: null }
     }
   }
 }
