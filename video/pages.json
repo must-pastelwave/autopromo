@@ -1,0 +1,10 @@
+{
+  "note": "Pages a video may show (look: screen), checked by hand: the top of each page (what the video shows) has no banned wording. MPC leaves out /about, /investors, /dapp, /roadmap and the app (token, TGE, wallet wording).",
+  "pages": [
+    "https://github.com/globalmpc/backendskills",
+    "https://globalmpc.tech/how-it-works",
+    "https://globalmpc.tech/operations",
+    "https://globalmpc.tech/reference-case",
+    "https://globalmpc.tech/technical-reports"
+  ]
+}
