@@ -158,3 +158,7 @@ alter table shares add column if not exists views int;
 insert into channels (product_id, platform, automatable)
   select p.id, 'devto', true from products p
   where not exists (select 1 from channels c where c.product_id = p.id and c.platform = 'devto');
+-- YouTube back (2026-11-16): one channel per product, each picks its own YouTube account (Shorts from the slides, like TikTok).
+insert into channels (product_id, platform, automatable)
+  select p.id, 'youtube', true from products p
+  where not exists (select 1 from channels c where c.product_id = p.id and c.platform = 'youtube');
