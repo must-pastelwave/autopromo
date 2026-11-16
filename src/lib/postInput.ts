@@ -1,6 +1,8 @@
 import { findBanned } from './rules'
 
-export type Slide = { text: string; photo_url?: string; photo_credit?: string; photo_track?: string }
+/** look (video only): 'say' a line of kinetic type, 'count' a number counting up, 'terminal' commands typed with their output. */
+export type Slide = { text: string; photo_url?: string; photo_credit?: string; photo_track?: string; look?: 'say' | 'count' | 'terminal' }
+const LOOKS = ['say', 'count', 'terminal']
 export type PostInput = {
   product_id: number; channel_id: number; client_key: string; kind: 'carousel' | 'text' | 'video'
   caption: string; slides: Slide[]; topic: string; format_tag: string; is_experiment: boolean; facts_used: number[]
@@ -26,6 +28,9 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
     if (!s || !str(s.text, 300)) return 'every slide needs text (max 300 chars)'
     if (!https(s.photo_url) || !https(s.photo_track)) return 'photo urls must be https'
     if (s.photo_credit !== undefined && s.photo_credit !== null && typeof s.photo_credit !== 'string') return 'photo_credit must be a string'
+    if (s.look !== undefined && (b.kind !== 'video' || !LOOKS.includes(s.look))) return `look is for video slides only: ${LOOKS.join(', ')}`
+    if (s.look === 'count' && !/\d/.test(s.text)) return 'a count slide needs a number'
+    if (s.look === 'terminal' && s.text.split('\n').length > 8) return 'a terminal slide has at most 8 lines'
   }
   if (b.kind === 'carousel' && (slides.length < 5 || slides.length > 7)) return 'a carousel needs 5–7 slides'
   if (b.kind === 'text' && slides.length > 1) return 'a text post has at most 1 image'
@@ -45,7 +50,7 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
   }
   return {
     product_id: b.product_id, channel_id: b.channel_id, client_key: b.client_key.trim(), kind: b.kind,
-    caption: b.caption, slides: slides.map((s: Slide) => ({ text: s.text, photo_url: s.photo_url, photo_credit: s.photo_credit, photo_track: s.photo_track })),
+    caption: b.caption, slides: slides.map((s: Slide) => ({ text: s.text, photo_url: s.photo_url, photo_credit: s.photo_credit, photo_track: s.photo_track, look: s.look })),
     topic: b.topic, format_tag: b.format_tag, is_experiment: b.is_experiment === true, facts_used: facts,
   }
 }

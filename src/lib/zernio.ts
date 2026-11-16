@@ -49,13 +49,11 @@ export async function createPost(p: {
   return { zernioId: post._id }
 }
 
-/** Upload a file to Zernio's media store (presigned PUT) and return its public URL. */
-export async function uploadMedia(data: Buffer, filename: string, contentType: string): Promise<string> {
+/** A one-time upload slot in Zernio's media store: PUT the bytes to uploadUrl (no auth), then use publicUrl. */
+export async function presignMedia(filename: string, contentType: string): Promise<{ uploadUrl: string; publicUrl: string }> {
   const { body } = await call('/media/presign', { method: 'POST', body: JSON.stringify({ filename, contentType }) })
   if (!body?.uploadUrl || !body?.publicUrl) throw new ZernioError(0, 'presign returned no upload url')
-  const r = await fetch(body.uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: new Uint8Array(data) })
-  if (!r.ok) throw new ZernioError(r.status, `upload ${r.status}`)
-  return body.publicUrl
+  return { uploadUrl: body.uploadUrl, publicUrl: body.publicUrl }
 }
 
 export async function getPost(zernioId: string): Promise<{ status: string; error: string }> {

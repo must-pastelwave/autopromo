@@ -1,7 +1,6 @@
 import { sql } from './db'
 import { nextSlot, startOfDay } from './slots'
-import { cancelPost, createPost, getPost, uploadMedia } from './zernio'
-import { renderVideo } from './video'
+import { cancelPost, createPost, getPost } from './zernio'
 import { trackUse } from './photos'
 import { isDirect, sendDirect, DIRECT } from './direct'
 import { distribute } from './places'
@@ -40,16 +39,6 @@ const slideUrlsFor = (postId: number, count: number, revision: number) =>
   // ?r= busts the 24h image cache when a revised post reuses the same id.
   Array.from({ length: count }, (_, i) => `${appUrl()}/api/slide/${postId}/${i}.png?r=${revision}`)
 
-/** Fetch the post's rendered slides and make the mp4 (what gets posted, and the owner's preview). */
-export async function renderPostVideo(postId: number, slideCount: number, revision: number): Promise<Buffer> {
-  const pngs = await Promise.all(slideUrlsFor(postId, slideCount, revision).map(async u => {
-    const r = await fetch(u)
-    if (!r.ok) throw new Error(`slide ${u} returned ${r.status}`)
-    return Buffer.from(await r.arrayBuffer())
-  }))
-  return renderVideo(pngs)
-}
-
 /** Schedule a reviewed post in Zernio, or park it in "Waiting for you" for a person to approve or post. */
 export async function publish(postId: number, opts: { retry?: boolean; approved?: boolean; now?: boolean } = {}): Promise<void> {
   const [row] = await sql`
@@ -58,6 +47,8 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
     left join plan_items i on i.id = p.plan_item_id
     where p.id = ${postId}`
   if (!row) return
+  // A video goes nowhere until its edit is rendered (GitHub Action → /api/agent/posts/<id>/video, which calls this again).
+  if (row.kind === 'video' && !row.video_url) return
   // Drafts-only channels always wait; automatable ones wait until auto-publish is on or a person approves.
   // A channel switched Off is the owner's kill switch: park the post, never send it.
   if (!row.enabled || !row.automatable || (!row.auto_publish && !opts.approved)) {
@@ -106,9 +97,7 @@ export async function publish(postId: number, opts: { retry?: boolean; approved?
     const { zernioId } = await createPost({
       postId, accountId: row.zernio_account_id, platform: row.platform,
       caption: captionFor(row.platform, row.caption, row.link_code, row.language),
-      mediaUrls: isVideo
-        ? [await uploadMedia(await renderPostVideo(postId, slides.length, row.revision), `post-${postId}-r${row.revision}.mp4`, 'video/mp4')]
-        : slideUrls,
+      mediaUrls: isVideo ? [row.video_url] : slideUrls,
       scheduledFor: when,
       // A new key per revision and for the retry: Zernio would replay a failed attempt under the same key.
       idempotencyKey: `post-${postId}-r${row.revision}${opts.retry ? '-retry' : ''}${opts.now ? `-now${Date.now()}` : ''}`,

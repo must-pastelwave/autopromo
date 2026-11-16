@@ -22,7 +22,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const [post] = await sql`
     update posts set kind = ${p.kind}, caption = ${p.caption}, slides = ${sql.json(p.slides)}, topic = ${p.topic},
       format_tag = ${p.format_tag}, is_experiment = ${p.is_experiment}, facts_used = ${p.facts_used},
-      revision = revision + 1, status = ${blocked ? 'blocked' : 'draft'}, review_reason = ${blocked}
+      revision = revision + 1, status = ${blocked ? 'blocked' : 'draft'}, review_reason = ${blocked},
+      video_url = null, video_upload = null   -- the new version gets its own render
     where id = ${id} returning *`
   return Response.json({ post })
 }

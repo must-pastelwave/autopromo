@@ -1,5 +1,5 @@
 import { test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { connectUrl, createPost, ensureProfile, listAccounts, uploadMedia, ZernioError } from './zernio'
+import { connectUrl, createPost, ensureProfile, listAccounts, presignMedia, ZernioError } from './zernio'
 
 const args = { postId: 42, accountId: 'acc1', platform: 'threads', caption: 'hi', mediaUrls: ['https://app.test/api/slide/42/0.png'], scheduledFor: new Date('2026-11-12T00:07:00Z') }
 beforeEach(() => { process.env.ZERNIO_API_KEY = 'sk_test' })
@@ -52,28 +52,12 @@ test('video post: typed media item, platform data and root settings in the body'
   expect(body.tiktokSettings).toEqual({ draft: false })
 })
 
-test('uploadMedia: presign, then PUT the bytes, returns the public url', async () => {
-  const f = vi.fn(async (url: string) => url.endsWith('/media/presign')
-    ? Response.json({ uploadUrl: 'https://upload.test/x', publicUrl: 'https://media.zernio.com/temp/x.mp4' })
-    : new Response(null, { status: 200 }))
-  vi.stubGlobal('fetch', f)
-  const bytes = Buffer.from('mp4')
-  expect(await uploadMedia(bytes, 'post-7.mp4', 'video/mp4')).toBe('https://media.zernio.com/temp/x.mp4')
-  const [u1, i1] = f.mock.calls[0] as unknown as [string, RequestInit]
-  expect(u1).toBe('https://zernio.com/api/v1/media/presign')
-  expect(JSON.parse(String(i1.body))).toEqual({ filename: 'post-7.mp4', contentType: 'video/mp4' })
-  const [u2, i2] = f.mock.calls[1] as unknown as [string, RequestInit]
-  expect(u2).toBe('https://upload.test/x')
-  expect(i2.method).toBe('PUT')
-  expect(new Headers(i2.headers).get('content-type')).toBe('video/mp4')
-  expect(new Headers(i2.headers).get('authorization')).toBeNull()
-})
-
-test('uploadMedia: failed PUT throws', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/media/presign')
-    ? Response.json({ uploadUrl: 'https://upload.test/x', publicUrl: 'https://media.zernio.com/temp/x.mp4' })
-    : new Response('denied', { status: 403 })))
-  await expect(uploadMedia(Buffer.from('x'), 'a.mp4', 'video/mp4')).rejects.toThrow(/upload 403/)
+test('presignMedia: asks Zernio for an upload slot', async () => {
+  const f = respond(200, { uploadUrl: 'https://upload.test/x', publicUrl: 'https://media.zernio.com/temp/x.mp4' })
+  expect(await presignMedia('post-7.mp4', 'video/mp4')).toEqual({ uploadUrl: 'https://upload.test/x', publicUrl: 'https://media.zernio.com/temp/x.mp4' })
+  const [u, i] = f.mock.calls[0] as unknown as [string, RequestInit]
+  expect(u).toBe('https://zernio.com/api/v1/media/presign')
+  expect(JSON.parse(String(i.body))).toEqual({ filename: 'post-7.mp4', contentType: 'video/mp4' })
 })
 
 test('ensureProfile: reuses the profile with our externalId', async () => {

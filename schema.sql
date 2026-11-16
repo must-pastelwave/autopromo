@@ -162,3 +162,7 @@ insert into channels (product_id, platform, automatable)
 insert into channels (product_id, platform, automatable)
   select p.id, 'youtube', true from products p
   where not exists (select 1 from channels c where c.product_id = p.id and c.platform = 'youtube');
+-- Videos are edited and rendered outside the app (GitHub Action, video/build.mjs + HyperFrames). video_url: the finished
+-- mp4 in Zernio's media store; video_upload: where the running render was told to upload (confirmed into video_url).
+alter table posts add column if not exists video_url text;
+alter table posts add column if not exists video_upload text;
