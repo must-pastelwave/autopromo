@@ -106,9 +106,10 @@ test('video slides: look is say, count (with a number) or terminal (at most 8 li
   expect((await post({ text: 'x', look: 'zoom' })).status).toBe(400)
   expect((await post({ text: 'no number', look: 'count' })).status).toBe(400)
   expect((await post({ text: Array(9).fill('$ ls').join('\n'), look: 'terminal' })).status).toBe(400)
-  const ok = await post({ text: '$ npx skills add x\nInstalled', look: 'terminal' })
+  expect((await post({ text: 'x', voice: '' })).status).toBe(400)
+  const ok = await post({ text: '$ npx skills add x\nInstalled', look: 'terminal', voice: 'One command installs it.' })
   expect(ok.status).toBe(201)
-  expect((await ok.json()).post.slides[2].look).toBe('terminal')
+  expect((await ok.json()).post.slides[2]).toMatchObject({ look: 'terminal', voice: 'One command installs it.' })
 })
 
 test('youtube: first caption line is the title, max 100 chars', async () => {

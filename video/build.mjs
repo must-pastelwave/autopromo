@@ -1,8 +1,12 @@
 // A post's beats → one HyperFrames composition (index.html), rendered to a 9:16 mp4 by `hyperframes render`.
-// Usage: node video/build.mjs <post.json> <outDir>   (post.json: {slides: [{text, look?}], language})
+// Usage: node video/build.mjs <post.json> <outDir>   (post.json: {slides: [{text, look?, voice?}], language})
+// With HYPERFRAMES_TTS=1 each beat is also narrated by Kokoro (`hyperframes tts`, free, on the runner) and held
+// until its line is spoken; languages Kokoro can't speak (Korean) stay silent.
 // House style follows the hyperframes skill (references/motion.md, types/vertical.md): the hook is on screen at
 // frame 0, text lands and holds still, words blur in, exits are short, everything sits inside the safe band.
+import { execFile } from 'node:child_process'
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { promisify } from 'node:util'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -65,6 +69,15 @@ function beatHtml(b, i) {
 /** GSAP for one beat, in film time. Entrances vary by beat (motion.md "Titles"); beat 0 is already on screen. */
 function beatJs(b, i, t, d) {
   const sel = `#b${i}`, end = round(t + d)
+  // A spoken line: its words arrive as they are said (an estimate spread over the clip; Kokoro gives no word times).
+  if (b.spoken && b.look === 'say' && i > 0) {
+    const words = b.text.split(/\s+/).filter(Boolean).length
+    const stagger = round(Math.min(0.35, Math.max(0.067, (b.spoken * 0.85) / words)))
+    const out = [`tl.fromTo("${sel} .w", {opacity: 0, filter: "blur(6px)"}, {opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: ${stagger}}, ${round(t + 0.05)});`]
+    if (/\*/.test(b.text)) out.push(`tl.fromTo("${sel} .accent", {color: "#ffffff"}, {color: "#ffd23f", duration: 0.2}, ${round(t + 0.6)});`)
+    if (!b.last) out.push(`tl.to("${sel} .line", {opacity: 0, filter: "blur(8px)", duration: 0.15, ease: "power3.in"}, ${round(end - 0.17)});`)
+    return out.join('\n')
+  }
   const out = []
   if (b.look === 'terminal') {
     const lines = b.text.split('\n')
@@ -101,13 +114,21 @@ function beatJs(b, i, t, d) {
   return out.join('\n')
 }
 
-export function buildComposition(post) {
-  const beats = post.slides.map((s, i, all) => ({ text: s.text, look: s.look ?? 'say', last: i === all.length - 1 }))
+/** What the narrator says on a beat: its `voice`, else a say/count line as written; a terminal is silent unless given one. */
+export const spokenText = s => typeof s.voice === 'string' ? s.voice : s.look === 'terminal' ? '' : s.text.replace(/\*/g, '')
+
+/** voices: seconds of narration per beat index (files at assets/voice/b<i>.wav). A beat lasts until its line is said. */
+export function buildComposition(post, voices = {}) {
+  const beats = post.slides.map((s, i, all) => ({ text: s.text, look: s.look ?? 'say', last: i === all.length - 1, spoken: voices[i] }))
   let t = 0
-  const timed = beats.map((b, i) => { const d = beatSeconds(b, b.last); const x = { b, i, t: round(t), d }; t += d; return x })
+  const timed = beats.map((b, i) => {
+    const d = round(Math.max(beatSeconds(b, b.last), b.spoken ? b.spoken + 0.35 : 0))
+    const x = { b, i, t: round(t), d }; t += d; return x
+  })
   const duration = round(t)
   const clips = timed.map(({ b, i, t, d }) =>
-    `<div id="b${i}" class="clip beat" data-start="${t}" data-duration="${d}" data-track-index="1">${beatHtml(b, i)}</div>`).join('\n      ')
+    `<div id="b${i}" class="clip beat" data-start="${t}" data-duration="${d}" data-track-index="1">${beatHtml(b, i)}</div>`
+    + (b.spoken ? `\n      <audio id="v${i}" src="assets/voice/b${i}.wav" data-start="${t}" data-duration="${b.spoken}" data-track-index="2"></audio>` : '')).join('\n      ')
   const js = timed.map(({ b, i, t, d }) => beatJs(b, i, t, d)).join('\n')
   const html = `<!doctype html>
 <html lang="${esc(post.language || 'en')}">
@@ -170,10 +191,34 @@ ${js}
   return { html, duration }
 }
 
+/** Kokoro voices by product language (Kokoro has no Korean). */
+const VOICES = { en: 'am_michael', es: 'ef_dora', fr: 'ff_siwis', ja: 'jf_alpha', zh: 'zf_xiaobei' }
+
+/** Narrate each beat into outDir/assets/voice; returns seconds per beat. A failed line is left silent, not fatal. */
+async function narrate(post, outDir) {
+  const voice = VOICES[(post.language || 'en').slice(0, 2)]
+  if (!voice || process.env.HYPERFRAMES_TTS !== '1') return {}
+  await mkdir(join(outDir, 'assets/voice'), { recursive: true })
+  const out = {}
+  for (const [i, s] of post.slides.entries()) {
+    const text = spokenText(s).trim()
+    if (!text) continue
+    try {
+      const { stdout } = await promisify(execFile)(process.env.HYPERFRAMES_BIN || 'hyperframes',
+        ['tts', text, '-v', voice, '-s', '1.1', '-o', join(outDir, `assets/voice/b${i}.wav`), '--json'], { maxBuffer: 1 << 20 })
+      const r = JSON.parse(stdout.trim().split('\n').pop())
+      if (r.ok && r.durationSeconds > 0) out[i] = round(r.durationSeconds)
+    } catch (e) {
+      console.error(`beat ${i}: no voice (${e instanceof Error ? e.message.slice(0, 200) : e})`)
+    }
+  }
+  return out
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [postFile, outDir] = process.argv.slice(2)
   const post = JSON.parse(await readFile(postFile, 'utf8'))
-  const { html, duration } = buildComposition(post)
+  const { html, duration } = buildComposition(post, await narrate(post, outDir))
   await mkdir(join(outDir, 'assets/fonts'), { recursive: true })
   await writeFile(join(outDir, 'index.html'), html)
   await copyFile(join(dirname(fileURLToPath(import.meta.url)), '../assets/fonts/NotoSansKR-Bold.otf'), join(outDir, 'assets/fonts/NotoSansKR-Bold.otf'))
