@@ -157,4 +157,13 @@ jobs:
             [ -n "$up" ] || { fail "no upload slot from Zernio"; continue; }
             curl -sSf -X PUT -H 'content-type: video/mp4' --upload-file "$dir/out.mp4" "$up" > /dev/null || { fail "upload failed"; continue; }
             api -X POST -d '{"done": true}' "$APP_URL/api/agent/posts/$id/video" > /dev/null && echo "post $id: video ready"
+            mkdir -p "$RUNNER_TEMP/videos" && cp "$dir/out.mp4" "$RUNNER_TEMP/videos/post-$id.mp4"
           done
+      # The run's videos, watchable from the run page for a week (they are public posts anyway).
+      - uses: actions/upload-artifact@v4
+        if: always() && (steps.pick.outputs.jobs != '' || steps.pick.outputs.videos != '0')
+        with:
+          name: videos
+          path: ${{ runner.temp }}/videos
+          if-no-files-found: ignore
+          retention-days: 7
