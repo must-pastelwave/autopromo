@@ -47,6 +47,10 @@ test('places: suggested → approved → each gets the newest post with its own 
   const stats = await placeStats(productId)
   expect(stats.map(s => [s.name, s.people])).toEqual([['r/travel', 2], ['Travel deals TG', 0]])
   expect((await sql`select count(*)::int as n from clicks where post_id = ${post.id}`)[0].n).toBe(3)
+
+  // Views typed in for a share posted by hand add up per place.
+  await sql`update shares set status = 'posted', views = 1500 where link_code = ${reddit}`
+  expect((await placeStats(productId)).map(s => [s.name, s.views])).toEqual([['r/travel', 1500], ['Travel deals TG', 0]])
 })
 
 test('auto places post by themselves, once; per_week caps how often a place gets a post', async () => {

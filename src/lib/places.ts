@@ -98,6 +98,7 @@ export async function placeStats(productId: number) {
   return sql`
     select pl.id, pl.name, pl.url, pl.kind, pl.how, pl.target is not null as connected, pl.members, pl.rules, pl.why, pl.per_week, pl.status,
       (select count(*)::int from shares s where s.place_id = pl.id and s.status = 'posted') as posted,
+      (select coalesce(sum(s.views), 0)::int from shares s where s.place_id = pl.id) as views,
       (select count(*)::int from clicks k join shares s on s.id = k.share_id where s.place_id = pl.id) as people,
       (select count(*)::int from conversions v join clicks k on k.id = v.click_id join shares s on s.id = k.share_id
         where s.place_id = pl.id and v.kind = 'signup') as signups

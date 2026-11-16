@@ -3,7 +3,7 @@ import { sql } from '@/lib/db'
 import { AUTO_KINDS, ONE_TIME_KINDS, placeStats, shareText } from '@/lib/places'
 import { Page } from '../sections/frame'
 import { CopyOpen } from '../sections/copy-open'
-import { addPlace, connectPlace, findPlaces, markShare, setPerWeek, setPlaceStatus } from './actions'
+import { addPlace, connectPlace, findPlaces, markShare, setPerWeek, setPlaceStatus, setShareViews } from './actions'
 
 const PLACEHOLDER: Record<string, string> = {
   telegram: 'Chat id (our bot must be in it)', discord: 'Webhook URL or channel id',
@@ -22,6 +22,11 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
     from shares s join places pl on pl.id = s.place_id join products pr on pr.id = pl.product_id
     where pl.product_id = ${p.id} and s.status = 'todo' and s.text_status = 'ok' and pl.how = 'paste' and pl.status = 'approved'
     order by s.created_at`
+  const posted = await sql`
+    select s.id, s.post_url, s.views, s.posted_at::date::text as day, pl.name, pl.kind
+    from shares s join places pl on pl.id = s.place_id
+    where pl.product_id = ${p.id} and s.status = 'posted' and pl.how = 'paste'
+    order by s.posted_at desc nulls last limit 30`
 
   return (
     <Page title="Places" msg={msg}>
@@ -34,7 +39,9 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
           <div style={{ whiteSpace: 'pre-wrap', margin: '8px 0' }}>{shareText(t.text, t.link_code, t.kind, t.product_url)}</div>
           <div className="row">
             <CopyOpen text={shareText(t.text, t.link_code, t.kind, t.product_url)} href={t.url} />
-            <form action={markShare}><input type="hidden" name="id" value={t.id} /><input type="hidden" name="outcome" value="posted" /><button type="submit">I posted it</button></form>
+            <form action={markShare} className="row"><input type="hidden" name="id" value={t.id} /><input type="hidden" name="outcome" value="posted" />
+              <input name="post_url" type="url" placeholder="Link to your post" aria-label={`Link to the post in ${t.name}`} style={{ width: 220 }} />
+              <button type="submit">I posted it</button></form>
             <form action={markShare}><input type="hidden" name="id" value={t.id} /><input type="hidden" name="outcome" value="skip" /><button type="submit" className="ghost">Skip</button></form>
           </div>
         </div>
@@ -43,7 +50,7 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
 
       <h2>Places in use</h2>
       <div className="scroll"><table>
-        <thead><tr><th>Place</th><th>Posting</th><th>Per week</th><th>Posted</th><th>People</th><th>Sign-ups</th><th></th></tr></thead>
+        <thead><tr><th>Place</th><th>Posting</th><th>Per week</th><th>Posted</th><th>Views</th><th>People</th><th>Sign-ups</th><th></th></tr></thead>
         <tbody>
           {used.map(x => (
             <tr key={x.id}>
@@ -69,13 +76,35 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
                   <button type="submit" className="ghost">Set</button>
                 </form>}
               </td>
-              <td>{x.posted}</td><td><strong>{x.people}</strong></td><td>{x.signups}</td>
+              <td>{x.posted}</td><td>{x.views ? num(x.views) : '—'}</td><td><strong>{x.people}</strong></td><td>{x.signups}</td>
               <td><form action={setPlaceStatus}><input type="hidden" name="id" value={x.id} /><input type="hidden" name="status" value="rejected" /><button type="submit" className="ghost">Remove</button></form></td>
             </tr>
           ))}
-          {used.length === 0 && <tr><td colSpan={7} className="muted">No places yet. Approve some below, or add one.</td></tr>}
+          {used.length === 0 && <tr><td colSpan={8} className="muted">No places yet. Approve some below, or add one.</td></tr>}
         </tbody>
       </table></div>
+
+      {posted.length > 0 && <>
+        <h2>Posted by hand <span className="muted" style={{ fontWeight: 400 }}>· type in the views the platform shows; they count in the campaign&apos;s views</span></h2>
+        <div className="scroll"><table>
+          <thead><tr><th>Place</th><th>Posted</th><th>Link</th><th>Views</th></tr></thead>
+          <tbody>
+            {posted.map(x => (
+              <tr key={x.id}>
+                <td><b>{x.name}</b><div className="muted">{x.kind}</div></td>
+                <td className="muted">{x.day}</td>
+                <td>{x.post_url ? <a href={x.post_url} target="_blank" rel="noreferrer">open</a> : <span className="muted">—</span>}</td>
+                <td><form action={setShareViews} className="row">
+                  <input type="hidden" name="id" value={x.id} />
+                  {!x.post_url && <input name="post_url" type="url" placeholder="Link" aria-label={`Link to the post in ${x.name}`} style={{ width: 160 }} />}
+                  <input name="views" type="number" min={0} defaultValue={x.views ?? ''} aria-label={`Views in ${x.name}`} style={{ width: 90 }} />
+                  <button type="submit" className="ghost">Save</button>
+                </form></td>
+              </tr>
+            ))}
+          </tbody>
+        </table></div>
+      </>}
 
       <h2>Suggested <span className="muted" style={{ fontWeight: 400 }}>· found by the scout every Monday</span></h2>
       <form action={findPlaces} style={{ marginBottom: 12 }}><button type="submit" className="ghost">Find places now</button></form>
