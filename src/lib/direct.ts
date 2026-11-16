@@ -219,6 +219,31 @@ export async function checkBluesky(target: string): Promise<string | null> {
 // ---- Sending ----
 
 /** Send one post now. `text` already ends with the tracked link. Returns the platform's message id. */
+// ---- Dev.to (our own account; articles are shown to people following their tags, not only our followers) ----
+
+const DEVTO_KEY = /^[A-Za-z0-9]{10,64}$/
+const devto = (key: string, path: string, init: RequestInit = {}) =>
+  call('devto', `https://dev.to/api${path}`, { ...init, headers: { 'api-key': key, 'Content-Type': 'application/json', Accept: 'application/vnd.forem.api-v1+json' } })
+
+/** Does Dev.to accept this API key? Returns what's wrong, or null. */
+export async function checkDevto(key: string): Promise<string | null> {
+  if (!DEVTO_KEY.test(key)) return 'Paste the API key from Dev.to → Settings → Extensions.'
+  try { await devto(key, '/users/me'); return null } catch (e) {
+    return `Dev.to didn't accept that key (${e instanceof Error ? e.message.replace(/^devto \d+: /, '') : e}).`
+  }
+}
+
+/** The writer's article: first line is the title, a "Tags:" line gives up to 4 tags, the rest is the body (markdown). */
+export function devtoArticle(text: string) {
+  const lines = text.trim().split('\n')
+  const title = lines.shift()!.replace(/^#+\s*|^title:\s*/i, '').trim().slice(0, 128)
+  const tagLine = lines.find(l => /^tags:/i.test(l.trim()))
+  const tags = (tagLine ?? '').replace(/^\s*tags:/i, '').split(/[,\s]+/).map(t => t.replace(/\W/g, '').toLowerCase()).filter(Boolean).slice(0, 4)
+  // Dev.to asks AI-assisted posts to say so.
+  const body = `${lines.filter(l => l !== tagLine).join('\n').trim()}\n\n*Written with help from AI.*`
+  return { title, body_markdown: body, tags, published: true }
+}
+
 export async function sendDirect(platform: string, target: string, text: string, imageUrl?: string): Promise<string> {
   if (platform === 'telegram') {
     const res = imageUrl
@@ -232,6 +257,11 @@ export async function sendDirect(platform: string, target: string, text: string,
       // No @everyone/@here/role pings from post text, ever.
       body: JSON.stringify({ content: text, allowed_mentions: { parse: [] }, ...(imageUrl ? { embeds: [{ image: { url: imageUrl } }] } : {}) }),
     })
+    return String(res?.id ?? '')
+  }
+  if (platform === 'devto') {
+    if (!DEVTO_KEY.test(target)) throw new DirectError('devto', 0, 'not a Dev.to API key')
+    const res = await devto(target, '/articles', { method: 'POST', body: JSON.stringify({ article: devtoArticle(text) }) })
     return String(res?.id ?? '')
   }
   if (platform === 'mastodon') {
