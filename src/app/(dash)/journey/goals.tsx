@@ -16,7 +16,8 @@ export async function Goals({ productId }: { productId: number }) {
         <tbody>
           {goals.map(g => (
             <tr key={g.id}>
-              <td><b>{g.label}</b>{g.source && <span className="muted"> · {g.source}</span>}</td>
+              <td><b>{g.label}</b>{g.source && <span className="muted"> · {g.source}</span>}
+                {g.last30.total !== undefined && <div><b>{fmt(g.last30.total)}</b> <span className="muted">today</span></div>}</td>
               <td>{g.tracking.ok ? fmt(g.last30.value) + sinceNote(g.last30.since, 30) : '—'}{g.target_1m ? ` / ${fmt(g.target_1m)}` : ''}</td>
               <td>{g.tracking.ok ? fmt(g.last90.value) + sinceNote(g.last90.since, 90) : '—'}{g.target_3m ? ` / ${fmt(g.target_3m)}` : ''}</td>
               <td className={g.tracking.ok ? 's-published' : 's-waiting'}>{g.tracking.ok ? '✓ ' : '✗ '}{g.tracking.why}</td>

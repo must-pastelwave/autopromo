@@ -32,7 +32,7 @@ export async function Scorecard({ planId, productId }: { planId: number; product
           return (
             <div key={k} className="stat">
               <div className="big">{fmt(actual)}{target && <span className="of"> / {fmt(target)}</span>}</div>
-              <div className="muted">{TARGET_LABEL[k]}{state && <> · <span className={state === 'on track' ? 's-published' : 's-waiting'}>{state}</span></>}</div>
+              <div className="muted">{TARGET_LABEL[k]}{k === 'github_stars' && s.starsTotal > 0 && <> · {fmt(s.starsTotal)} today</>}{state && <> · <span className={state === 'on track' ? 's-published' : 's-waiting'}>{state}</span></>}</div>
               {target && <div className="bar"><span style={{ width: `${Math.min(100, (share ?? 0) * 100)}%` }} /><i style={{ left: `${pace * 100}%` }} /></div>}
             </div>
           )
