@@ -183,7 +183,7 @@ test('tiktok: the rendered mp4, TikTok settings, link in bio', async () => {
   expect((await get(p.id))).toMatchObject({ status: 'scheduled', zernio_post_id: 'zv', error: null })
   const body = postBody(f)
   expect(body.mediaItems).toEqual([{ type: 'video', url: VIDEO }])
-  expect(body.content).toBe('삿포로 겨울 여행 팁\n\n프로필 링크에서 확인하세요')
+  expect(body.content).toBe('삿포로 겨울 여행 팁\n\nLink in our profile')   // videos are English for every product
   expect(body.tiktokSettings).toMatchObject({
     privacy_level: 'PUBLIC_TO_EVERYONE', allow_comment: true, allow_duet: false, allow_stitch: false,
     content_preview_confirmed: true, express_consent_given: true, video_made_with_ai: true,
