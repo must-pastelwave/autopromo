@@ -28,6 +28,7 @@ export function startOfDay(tz: string, day: string): Date {
 /**
  * Next free publish time: perDay slots spread over 09:00–21:00 local, each at +7 min.
  * First 14 days after startedAt run at half volume (at least 1/day).
+ * A day's slot that passed unused isn't lost: until 21:00 the post goes out now (10 minutes' lead) instead of tomorrow.
  */
 export function nextSlot(o: { now: Date; tz: string; perDay: number; startedAt: Date | null; taken: Date[] }): Date {
   const earliest = o.now.getTime() + LEAD_MS
@@ -45,6 +46,11 @@ export function nextSlot(o: { now: Date; tz: string; perDay: number; startedAt: 
       const minutes = 9 * 60 + Math.round(i * step) + 7
       const t = zoned(o.tz, y, m, d, Math.floor(minutes / 60), minutes % 60)
       if (t.getTime() >= earliest && !taken.has(t.getTime())) return t
+    }
+    if (day === 0) {
+      const used = o.taken.filter(t => t.getTime() >= dayStart && t.getTime() < dayStart + DAY).length
+      const open = zoned(o.tz, y, m, d, 9, 0).getTime(), close = zoned(o.tz, y, m, d, 21, 0).getTime()
+      if (used < n && earliest >= open && earliest < close) return new Date(earliest)
     }
   }
   throw new Error('no free slot within a year')
