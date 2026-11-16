@@ -51,3 +51,10 @@ test('what the narrator says: voice, else the line without accent marks; termina
   expect(spokenText({ text: 'x', voice: 'Said instead' })).toBe('Said instead')
   expect(spokenText({ look: 'terminal', text: '$ ls' })).toBe('')
 })
+
+test('a screen beat shows its captured page under its line, and scrolls it', () => {
+  const { html } = buildComposition({ slides: [{ text: 'a' }, { look: 'screen', page: 'https://x', text: 'Real *page*' }, { text: 'c' }] })
+  expect(html).toContain('<img src="assets/screens/b1.png"')
+  expect(html).toMatch(/tl\.fromTo\("#b1 \.screen img", \{y: 0\}, \{y: -1100/)
+  expect(beatSeconds({ look: 'screen', text: 'Real page' }, false)).toBe(4.5)
+})
