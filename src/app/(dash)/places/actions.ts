@@ -7,7 +7,7 @@ import { dispatchAgent } from '@/lib/github'
 import { placeTarget, suggestPlaces } from '@/lib/places'
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
-const back = (msg: string): never => redirect(`/places?msg=${encodeURIComponent(msg)}`)
+const back = (msg: string, tab = 'use'): never => redirect(`/places?tab=${tab}&msg=${encodeURIComponent(msg)}`)
 const id = (f: FormData) => Number(s(f, 'id'))
 
 /** Approve (or reject, or bring back) a place. */
@@ -78,5 +78,5 @@ export async function setShareViews(f: FormData) {
 export async function findPlaces() {
   await requireOwner()
   const started = await dispatchAgent('scout')
-  back(started ? 'The scout is looking for places; new ones show up under "Suggested" in about 15 minutes.' : 'Couldn\'t start the scout now; it runs every Monday by itself.')
+  back(started ? 'The scout is looking for places; new ones show up under "Suggested" in about 15 minutes.' : 'Couldn\'t start the scout now; it runs every Monday by itself.', 'suggested')
 }
