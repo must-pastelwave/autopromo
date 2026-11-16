@@ -18,7 +18,7 @@ test('one timed clip per beat, the film as long as its beats, the hook on screen
 })
 
 test('text is escaped, multi-word accents work', () => {
-  const { html } = buildComposition({ language: 'ko', slides: [{ text: '<b>hi</b> *rate limits* now' }, { text: 'b' }, { text: 'c' }] })
+  const { html } = buildComposition({ slides: [{ text: '<b>hi</b> *rate limits* now' }, { text: 'b' }, { text: 'c' }] })
   expect(html).toContain('&lt;b&gt;hi&lt;/b&gt;')
   expect(html).toContain('<span class="w accent">rate</span> <span class="w accent">limits</span> <span class="w">now</span>')
 })

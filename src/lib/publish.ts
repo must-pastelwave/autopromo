@@ -4,6 +4,7 @@ import { cancelPost, createPost, getPost } from './zernio'
 import { trackUse } from './photos'
 import { isDirect, sendDirect, DIRECT } from './direct'
 import { distribute } from './places'
+import { VIDEO_PLATFORMS } from './postInput'
 
 // Shown where captions can't hold a clickable link. Keyed by the product's language.
 const BIO_NOTE: Record<string, string> = { ko: '프로필 링크에서 확인하세요', en: 'Link in our profile' }
@@ -15,7 +16,9 @@ const appUrl = () => (process.env.APP_URL ?? '').replace(/\/$/, '')
 const LINK_IN_BIO = ['instagram', 'tiktok', 'youtube']
 
 function captionFor(platform: string, caption: string, code: string, language: string): string {
-  return LINK_IN_BIO.includes(platform) ? `${caption}\n\n${BIO_NOTE[language] ?? BIO_NOTE.ko}` : `${caption}\n\n${appUrl()}/go/${code}`
+  // TikTok and YouTube videos are in English for every product.
+  const note = VIDEO_PLATFORMS.includes(platform) ? BIO_NOTE.en : BIO_NOTE[language] ?? BIO_NOTE.ko
+  return LINK_IN_BIO.includes(platform) ? `${caption}\n\n${note}` : `${caption}\n\n${appUrl()}/go/${code}`
 }
 
 /** Per-platform fields Zernio needs for video posts. */

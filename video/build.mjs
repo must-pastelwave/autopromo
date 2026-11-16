@@ -1,7 +1,7 @@
 // A post's beats → one HyperFrames composition (index.html), rendered to a 9:16 mp4 by `hyperframes render`.
-// Usage: node video/build.mjs <post.json> <outDir>   (post.json: {slides: [{text, look?, voice?}], language})
-// With HYPERFRAMES_TTS=1 each beat is also narrated by Kokoro (`hyperframes tts`, free, on the runner) and held
-// until its line is spoken; languages Kokoro can't speak (Korean) stay silent.
+// Usage: node video/build.mjs <post.json> <outDir>   (post.json: {slides: [{text, look?, voice?}]})
+// Videos are in English for every product. With HYPERFRAMES_TTS=1 each beat is narrated by Kokoro (`hyperframes tts`,
+// free, on the runner) and held until its line is spoken.
 // House style follows the hyperframes skill (references/motion.md, types/vertical.md): the hook is on screen at
 // frame 0, text lands and holds still, words blur in, exits are short, everything sits inside the safe band.
 import { execFile } from 'node:child_process'
@@ -131,7 +131,7 @@ export function buildComposition(post, voices = {}) {
     + (b.spoken ? `\n      <audio id="v${i}" src="assets/voice/b${i}.wav" data-start="${t}" data-duration="${b.spoken}" data-track-index="2"></audio>` : '')).join('\n      ')
   const js = timed.map(({ b, i, t, d }) => beatJs(b, i, t, d)).join('\n')
   const html = `<!doctype html>
-<html lang="${esc(post.language || 'en')}">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=${W}, height=${H}" />
@@ -191,13 +191,10 @@ ${js}
   return { html, duration }
 }
 
-/** Kokoro voices by product language (Kokoro has no Korean). */
-const VOICES = { en: 'am_michael', es: 'ef_dora', fr: 'ff_siwis', ja: 'jf_alpha', zh: 'zf_xiaobei' }
 
 /** Narrate each beat into outDir/assets/voice; returns seconds per beat. A failed line is left silent, not fatal. */
 async function narrate(post, outDir) {
-  const voice = VOICES[(post.language || 'en').slice(0, 2)]
-  if (!voice || process.env.HYPERFRAMES_TTS !== '1') return {}
+  if (process.env.HYPERFRAMES_TTS !== '1') return {}
   await mkdir(join(outDir, 'assets/voice'), { recursive: true })
   const out = {}
   for (const [i, s] of post.slides.entries()) {
@@ -205,7 +202,7 @@ async function narrate(post, outDir) {
     if (!text) continue
     try {
       const { stdout } = await promisify(execFile)(process.env.HYPERFRAMES_BIN || 'hyperframes',
-        ['tts', text, '-v', voice, '-s', '1.1', '-o', join(outDir, `assets/voice/b${i}.wav`), '--json'], { maxBuffer: 1 << 20 })
+        ['tts', text, '-v', 'am_michael', '-s', '1.1', '-o', join(outDir, `assets/voice/b${i}.wav`), '--json'], { maxBuffer: 1 << 20 })
       const r = JSON.parse(stdout.trim().split('\n').pop())
       if (r.ok && r.durationSeconds > 0) out[i] = round(r.durationSeconds)
     } catch (e) {
