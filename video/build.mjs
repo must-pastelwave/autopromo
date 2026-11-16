@@ -1,5 +1,6 @@
 // A post's beats → one HyperFrames composition (index.html), rendered to a 9:16 mp4 by `hyperframes render`.
-// Usage: node video/build.mjs <post.json> <outDir>   (post.json: {slides: [{text, look?, voice?}]})
+// Usage: node video/build.mjs <post.json> <outDir>   (post.json: {slides: [{text, look?, voice?, page?}]})
+// A `screen` beat shows the top of a real page (video/pages.json) at phone width, scrolling, under its line.
 // Videos are in English for every product. With HYPERFRAMES_TTS=1 each beat is narrated by Kokoro (`hyperframes tts`,
 // free, on the runner) and held until its line is spoken.
 // House style follows the hyperframes skill (references/motion.md, types/vertical.md): the hook is on screen at
@@ -11,6 +12,9 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const W = 1080, H = 1920
+// Screens are captured 420 css px wide at 2x (840 px, shown 1:1) and 1500 css px tall; the video shows only the top
+// 2000 px (900 visible, panned 1100): the part checked for pages.json, and never a cookie bar at the window's bottom.
+const SCREEN_PAN = 1100
 const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 const round = n => Math.round(n * 100) / 100
 
@@ -22,6 +26,7 @@ export function beatSeconds(b, last) {
     return round(Math.min(9, 0.4 + typed * 0.035 + lines.length * 0.15 + 1.6))
   }
   const words = b.text.replace(/\*/g, '').split(/\s+/).filter(Boolean).length
+  if (b.look === 'screen') return round(Math.max(4.5, 1.5 + 0.3 * words))
   const read = b.look === 'count' ? 1.4 + 0.5 + 0.3 * words : 0.5 + 0.3 * words
   return round(Math.max(last ? 2.6 : 1.3, Math.min(4, read + 0.2)))
 }
@@ -52,6 +57,9 @@ export function countParts(text) {
 }
 
 function beatHtml(b, i) {
+  if (b.look === 'screen') {
+    return `<div class="cap">${wordsHtml(b.text)}</div><div class="screen"><img src="assets/screens/b${i}.png" alt="" /></div>`
+  }
   if (b.look === 'terminal') {
     const lines = b.text.split('\n').map((l, j) => l.startsWith('$ ')
       ? `<div class="tl cmd"><span class="ps">$</span> ${[...l.slice(2)].map(c => `<span class="ch">${esc(c)}</span>`).join('')}</div>`
@@ -95,6 +103,15 @@ function beatJs(b, i, t, d) {
     // A punch-in on the result: a camera move, not a creeping scale.
     out.push(`tl.to("${sel} .term", {scale: 1.04, duration: 0.45, ease: "power2.inOut"}, ${round(Math.min(at, end - 0.9))});`)
     out.push(`tl.to("${sel} .term", {x: -220, filter: "blur(14px)", opacity: 0, duration: 0.18, ease: "power3.in"}, ${round(end - 0.2)});`)
+    return out.join('\n')
+  }
+  if (b.look === 'screen') {
+    // The real page scrolls by like a phone screen recording: the UI moving is the motion (motion.md).
+    out.push(`tl.fromTo("${sel} .screen", {y: 140, filter: "blur(12px)", opacity: 0}, {y: 0, filter: "blur(0px)", opacity: 1, duration: 0.4, ease: "expo.out"}, ${t});`)
+    out.push(`tl.fromTo("${sel} .cap .w", {opacity: 0, filter: "blur(6px)"}, {opacity: 1, filter: "blur(0px)", duration: 0.13, stagger: 0.067}, ${round(t + 0.1)});`)
+    out.push(`tl.fromTo("${sel} .screen img", {y: 0}, {y: -${SCREEN_PAN}, duration: ${round(d - 1.3)}, ease: "power2.inOut"}, ${round(t + 0.7)});`)
+    if (/\*/.test(b.text)) out.push(`tl.fromTo("${sel} .accent", {color: "#ffffff"}, {color: "#ffd23f", duration: 0.2}, ${round(t + 0.6)});`)
+    if (!b.last) out.push(`tl.to(["${sel} .screen", "${sel} .cap"], {opacity: 0, filter: "blur(8px)", duration: 0.15, ease: "power3.in"}, ${round(end - 0.17)});`)
     return out.join('\n')
   }
   if (b.look === 'count') {
@@ -161,6 +178,9 @@ export function buildComposition(post, voices = {}) {
       .tl { white-space: pre-wrap; word-break: break-all; }
       .tl.out { color: #9aa4b8; font-weight: 400; }
       .ps { color: #28c840; }
+      .cap { position: absolute; left: 60px; width: 840px; top: 210px; height: 190px; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; column-gap: 0.28em; text-align: center; font-size: 62px; line-height: 1.1; letter-spacing: -0.02em; }
+      .screen { position: absolute; left: 60px; width: 840px; top: 420px; height: 900px; border-radius: 32px; overflow: hidden; border: 2px solid #283041; box-shadow: 0 40px 120px rgba(0,0,0,0.6); background: #fff; }
+      .screen img { display: block; width: 840px; }
     </style>
   </head>
   <body>
@@ -212,9 +232,23 @@ async function narrate(post, outDir) {
   return out
 }
 
+/** Screenshot each `screen` beat's page (only pages in video/pages.json) into outDir/assets/screens. */
+async function capture(post, outDir) {
+  const { pages } = JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)), 'pages.json'), 'utf8'))
+  const chrome = process.env.CHROME_BIN || 'google-chrome'
+  for (const [i, s] of post.slides.entries()) {
+    if (s.look !== 'screen') continue
+    if (!pages.includes(s.page)) throw new Error(`beat ${i}: ${s.page} is not in video/pages.json`)
+    await mkdir(join(outDir, 'assets/screens'), { recursive: true })
+    await promisify(execFile)(chrome, ['--headless', '--hide-scrollbars', '--window-size=420,1500', '--force-device-scale-factor=2',
+      '--virtual-time-budget=8000', `--screenshot=${join(outDir, `assets/screens/b${i}.png`)}`, s.page], { timeout: 90_000 })
+  }
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [postFile, outDir] = process.argv.slice(2)
   const post = JSON.parse(await readFile(postFile, 'utf8'))
+  await capture(post, outDir)
   const { html, duration } = buildComposition(post, await narrate(post, outDir))
   await mkdir(join(outDir, 'assets/fonts'), { recursive: true })
   await writeFile(join(outDir, 'index.html'), html)

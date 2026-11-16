@@ -1,9 +1,11 @@
 import { findBanned } from './rules'
+import { pages as SCREEN_PAGES } from '../../video/pages.json'
 
 /** Video only: look is 'say' a line of kinetic type, 'count' a number counting up, 'terminal' commands typed with their output;
- * voice is what the narrator says over it (default: the line itself; a terminal is silent without one). */
-export type Slide = { text: string; photo_url?: string; photo_credit?: string; photo_track?: string; look?: 'say' | 'count' | 'terminal'; voice?: string }
-const LOOKS = ['say', 'count', 'terminal']
+ * 'screen' the top of a real page (page, one of video/pages.json) scrolling by; voice is what the narrator says over it
+ * (default: the line itself; a terminal is silent without one). */
+export type Slide = { text: string; photo_url?: string; photo_credit?: string; photo_track?: string; look?: 'say' | 'count' | 'terminal' | 'screen'; voice?: string; page?: string }
+const LOOKS = ['say', 'count', 'terminal', 'screen']
 export type PostInput = {
   product_id: number; channel_id: number; client_key: string; kind: 'carousel' | 'text' | 'video'
   caption: string; slides: Slide[]; topic: string; format_tag: string; is_experiment: boolean; facts_used: number[]
@@ -32,6 +34,8 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
     if (s.look !== undefined && (b.kind !== 'video' || !LOOKS.includes(s.look))) return `look is for video slides only: ${LOOKS.join(', ')}`
     if (s.voice !== undefined && (b.kind !== 'video' || !str(s.voice, 300))) return 'voice is for video slides only: what the narrator says (max 300 chars)'
     if (s.look === 'count' && !/\d/.test(s.text)) return 'a count slide needs a number'
+    if ((s.look === 'screen') !== (s.page !== undefined)) return 'a screen slide needs a page, and only screen slides take one'
+    if (s.look === 'screen' && !SCREEN_PAGES.includes(s.page)) return `screen pages: ${SCREEN_PAGES.join(', ')}`
     if (s.look === 'terminal' && s.text.split('\n').length > 8) return 'a terminal slide has at most 8 lines'
   }
   if (b.kind === 'carousel' && (slides.length < 5 || slides.length > 7)) return 'a carousel needs 5–7 slides'
@@ -52,7 +56,7 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
   }
   return {
     product_id: b.product_id, channel_id: b.channel_id, client_key: b.client_key.trim(), kind: b.kind,
-    caption: b.caption, slides: slides.map((s: Slide) => ({ text: s.text, photo_url: s.photo_url, photo_credit: s.photo_credit, photo_track: s.photo_track, look: s.look, voice: s.voice })),
+    caption: b.caption, slides: slides.map((s: Slide) => ({ text: s.text, photo_url: s.photo_url, photo_credit: s.photo_credit, photo_track: s.photo_track, look: s.look, voice: s.voice, page: s.page })),
     topic: b.topic, format_tag: b.format_tag, is_experiment: b.is_experiment === true, facts_used: facts,
   }
 }
