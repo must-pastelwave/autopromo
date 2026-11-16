@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { connection } from 'next/server'
 import { sql } from '@/lib/db'
 import { currentProduct } from '@/lib/current'
-import { selectProduct } from './actions'
+import { ProductSwitch } from './product-switch'
 import { Nav } from './nav'
 import { journeyFor } from '@/lib/journey'
 
@@ -21,17 +21,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
     <div className="admin">
       <aside className="sidebar">
         <div className="title">autopromo</div>
-        {products.length > 0 && (
-          <form action={selectProduct} className="switch">
-            <label htmlFor="product">Product</label>
-            <div className="row">
-              <select id="product" name="slug" defaultValue={current?.slug}>
-                {products.map(p => <option key={p.slug} value={p.slug}>{p.name}</option>)}
-              </select>
-              <button className="ghost" type="submit">Go</button>
-            </div>
-          </form>
-        )}
+        {products.length > 0 && <ProductSwitch products={products as unknown as { slug: string; name: string }[]} current={current?.slug} />}
         <Link href="/products/new" className="add-product">+ Add product</Link>
         <Nav waiting={n} toPaste={paste} planDraft={draft} step={step} />
       </aside>
