@@ -147,6 +147,16 @@ export async function runMaintenance(): Promise<void> {
     where p.status = 'waiting' and p.error like 'connect your % account to post this' and (c.zernio_account_id is not null or c.target is not null) and c.enabled`
   for (const c of connected) await publish(c.id, { approved: true })
 
+  // Videos queued before the edited format (slideshows, no video_url): take them back from Zernio while there's time,
+  // so the render step re-makes them; they then take the next free slot again.
+  const old = await sql`
+    select id, zernio_post_id from posts where kind = 'video' and status = 'scheduled' and video_url is null
+      and zernio_post_id is not null and scheduled_for > now() + interval '1 hour'`
+  for (const o of old) {
+    try { await cancelPost(o.zernio_post_id) } catch { continue }   // Zernio unreachable or already posting: leave it
+    await sql`update posts set status = 'passed', zernio_post_id = null where id = ${o.id} and status = 'scheduled'`
+  }
+
   // Passed review but publish never ran to the end (a crash or timeout): try again.
   const stuck = await sql`select id from posts where status = 'passed' and status_changed_at < now() - interval '10 minutes'`
   for (const s of stuck) await publish(s.id)

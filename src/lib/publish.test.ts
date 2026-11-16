@@ -315,3 +315,17 @@ test('a stale Zernio account ("does not belong to this user") flags the channel 
   await publish(p.id)
   expect((await sql`select needs_reconnect from channels where id = ${channelId}`)[0].needs_reconnect).toBe(true)
 })
+
+test('maintenance: a slideshow video still queued is taken back from Zernio to be re-made; new videos stay', async () => {
+  const { productId, channelId } = await seed({ platform: 'tiktok' })
+  const later = new Date(Date.now() + 86400_000)
+  const old = await insertPost(productId, channelId, { kind: 'video', status: 'scheduled', zernio_post_id: 'zold', scheduled_for: later })
+  const soon = await insertPost(productId, channelId, { kind: 'video', status: 'scheduled', zernio_post_id: 'zsoon', scheduled_for: new Date(Date.now() + 600_000) })
+  const fresh = await insertPost(productId, channelId, { kind: 'video', status: 'scheduled', zernio_post_id: 'znew', scheduled_for: later, video_url: 'https://v' })
+  const f = zernio(200, {})
+  await runMaintenance()
+  expect(await get(old.id)).toMatchObject({ status: 'passed', zernio_post_id: null })
+  expect(f.mock.calls.some(c => String((c as unknown as [string])[0]).endsWith('/posts/zold'))).toBe(true)
+  expect((await get(soon.id)).status).toBe('scheduled')
+  expect((await get(fresh.id)).status).toBe('scheduled')
+})
