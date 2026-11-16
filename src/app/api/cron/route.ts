@@ -2,7 +2,7 @@ import { runMaintenance } from '@/lib/publish'
 import { bearerMatches } from '@/lib/auth'
 import { pendingWork } from '@/lib/pending'
 import { dispatchAgent } from '@/lib/github'
-import { syncMetrics } from '@/lib/metrics'
+import { syncDevto, syncMetrics } from '@/lib/metrics'
 import { syncCounters } from '@/lib/goals'
 
 // Vercel Cron (every 5 minutes) sends `Authorization: Bearer <CRON_SECRET>`.
@@ -15,5 +15,6 @@ export async function GET(req: Request) {
   await runMaintenance()
   const metrics = await syncMetrics()
   const counters = await syncCounters()
-  return Response.json({ ok: true, started, metrics, counters })
+  const devto = await syncDevto()
+  return Response.json({ ok: true, started, metrics, counters, devto })
 }

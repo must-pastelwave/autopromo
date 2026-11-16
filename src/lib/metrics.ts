@@ -65,3 +65,39 @@ export async function syncMetrics(o: { force?: boolean } = {}): Promise<'ok' | '
     return 'error'
   }
 }
+
+/**
+ * Views, reactions and comments of our Dev.to articles, read with each Dev.to channel's own key (Zernio doesn't cover Dev.to).
+ * An article is matched to its post by our /go/<code> link in its body. At most hourly. Never throws.
+ */
+export async function syncDevto(o: { force?: boolean } = {}): Promise<'ok' | 'skipped' | 'nothing' | 'error'> {
+  if (!o.force) {
+    const [s] = await sql`select 1 from sync_state where key = 'devto' and at > now() - interval '1 hour'`
+    if (s) return 'skipped'
+  }
+  const keys = await sql`select distinct target from channels where platform = 'devto' and target is not null`
+  if (keys.length === 0) return 'nothing'
+  const note = async (n: string) => sql`insert into sync_state (key, at, note) values ('devto', now(), ${n}) on conflict (key) do update set at = now(), note = ${n}`
+  try {
+    for (const { target } of keys) {
+      const r = await fetch('https://dev.to/api/articles/me/published?per_page=100', {
+        headers: { 'api-key': target, Accept: 'application/vnd.forem.api-v1+json' }, signal: AbortSignal.timeout(15_000),
+      })
+      if (!r.ok) throw new Error(`devto ${r.status}`)
+      for (const a of (await r.json()) as any[]) {
+        const code = String(a?.body_markdown ?? '').match(/\/go\/([a-z0-9]{8})\b/)?.[1]
+        if (!code) continue
+        await sql`
+          insert into post_metrics (post_id, views, likes, comments, post_url, updated_at)
+          select id, ${n(a.page_views_count)}, ${n(a.public_reactions_count)}, ${n(a.comments_count)}, ${a.url ?? null}, now() from posts where link_code = ${code}
+          on conflict (post_id) do update set views = excluded.views, likes = excluded.likes, comments = excluded.comments,
+            post_url = coalesce(excluded.post_url, post_metrics.post_url), updated_at = now()`
+      }
+    }
+    await note('')
+    return 'ok'
+  } catch (e) {
+    await note(`dev.to sync failed: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300))
+    return 'error'
+  }
+}

@@ -1,7 +1,7 @@
 import { test, expect, beforeEach, afterEach, vi } from 'vitest'
 import { sql } from './db'
 import { resetDb, seed, insertPost } from '@/test/db'
-import { syncMetrics } from './metrics'
+import { syncDevto, syncMetrics } from './metrics'
 
 beforeEach(async () => { await resetDb(); process.env.ZERNIO_API_KEY = 'sk' })
 afterEach(() => vi.unstubAllGlobals())
@@ -51,4 +51,19 @@ test('nothing published yet → no calls', async () => {
   const f = vi.fn(); vi.stubGlobal('fetch', f)
   expect(await syncMetrics({ force: true })).toBe('nothing')
   expect(f).not.toHaveBeenCalled()
+})
+
+test('dev.to: views and reactions of our articles, matched by their /go link; others ignored', async () => {
+  const { productId, channelId } = await seed({ platform: 'devto', account: null })
+  await sql`update channels set target = 'abcdefghijkl1234' where id = ${channelId}`
+  const p = await insertPost(productId, channelId, { status: 'published', scheduled_for: new Date() })
+  const f = vi.fn(async () => Response.json([
+    { url: 'https://dev.to/me/a', page_views_count: 340, public_reactions_count: 12, comments_count: 3, body_markdown: `text\n\nhttps://app.test/go/${p.link_code}` },
+    { url: 'https://dev.to/me/old', page_views_count: 99, body_markdown: 'written by hand, no link' },
+  ]))
+  vi.stubGlobal('fetch', f)
+  expect(await syncDevto({ force: true })).toBe('ok')
+  expect((f.mock.calls[0] as unknown as [string, RequestInit])[1].headers).toMatchObject({ 'api-key': 'abcdefghijkl1234' })
+  expect(await sql`select post_id, views, likes, comments, post_url from post_metrics`).toEqual([{ post_id: p.id, views: 340, likes: 12, comments: 3, post_url: 'https://dev.to/me/a' }])
+  expect(await syncDevto()).toBe('skipped')   // hourly
 })
