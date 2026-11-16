@@ -2,12 +2,6 @@ import { test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { sql } from './db'
 import { postNow, publish, runMaintenance } from './publish'
 import { resetDb, seed, insertPost } from '@/test/db'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-import { mkdtemp, readFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import ffmpeg from 'ffmpeg-static'
 
 beforeEach(async () => { await resetDb(); process.env.ZERNIO_API_KEY = 'sk' })
 afterEach(() => vi.unstubAllGlobals())
@@ -176,57 +170,42 @@ test('slide URLs carry the revision so a revised post never gets a cached old im
   expect(body.mediaItems[0].url).toBe(`https://app.test/api/slide/${p.id}/0.png?r=1`)
 })
 
-/** Fake network for a video publish: slide PNGs from the app, Zernio presign + upload + post. */
-async function videoNet() {
-  const dir = await mkdtemp(join(tmpdir(), 'pub-'))
-  await promisify(execFile)(ffmpeg!, ['-f', 'lavfi', '-i', 'color=c=navy:s=108x192', '-frames:v', '1', join(dir, 'p.png')])
-  const png = await readFile(join(dir, 'p.png'))
-  const f = vi.fn(async (url: string) => {
-    if (url.startsWith('https://app.test/api/slide/')) return new Response(new Uint8Array(png))
-    if (url.endsWith('/media/presign')) return Response.json({ uploadUrl: 'https://upload.test/v', publicUrl: 'https://media.zernio.com/temp/v.mp4' })
-    if (url === 'https://upload.test/v') return new Response(null, { status: 200 })
-    return Response.json({ post: { _id: 'zv', status: 'scheduled' } }, { status: 201 })
-  })
-  vi.stubGlobal('fetch', f)
-  const postBody = () => JSON.parse(String((f.mock.calls.find(c => String(c[0]).endsWith('/posts')) as unknown as [string, RequestInit])[1].body))
-  return { f, postBody }
-}
-const videoSlides = () => sql.json([{ text: '팁 1' }, { text: '팁 2' }, { text: '팁 3' }])
+const VIDEO = 'https://media.zernio.com/temp/v.mp4'
+const videoPost = (productId: number, channelId: number, extra: Record<string, unknown> = {}) =>
+  insertPost(productId, channelId, { kind: 'video', slides: sql.json([{ text: '팁 1' }, { text: '팁 2' }, { text: '팁 3' }]), video_url: VIDEO, ...extra })
+const postBody = (f: ReturnType<typeof zernio>) => JSON.parse(String((f.mock.calls[0] as unknown as [string, RequestInit])[1].body))
 
-test('tiktok: slides rendered to one uploaded mp4, TikTok settings, link in bio', async () => {
+test('tiktok: the rendered mp4, TikTok settings, link in bio', async () => {
   const { productId, channelId } = await seed({ platform: 'tiktok' })
-  const { f, postBody } = await videoNet()
-  const p = await insertPost(productId, channelId, { kind: 'video', slides: videoSlides() })
+  const f = zernio(201, { post: { _id: 'zv', status: 'scheduled' } })
+  const p = await videoPost(productId, channelId)
   await publish(p.id)
   expect((await get(p.id))).toMatchObject({ status: 'scheduled', zernio_post_id: 'zv', error: null })
-  expect(f.mock.calls.filter(c => String(c[0]).startsWith('https://app.test/api/slide/'))).toHaveLength(3)
-  const body = postBody()
-  expect(body.mediaItems).toEqual([{ type: 'video', url: 'https://media.zernio.com/temp/v.mp4' }])
+  const body = postBody(f)
+  expect(body.mediaItems).toEqual([{ type: 'video', url: VIDEO }])
   expect(body.content).toBe('삿포로 겨울 여행 팁\n\n프로필 링크에서 확인하세요')
   expect(body.tiktokSettings).toMatchObject({
     privacy_level: 'PUBLIC_TO_EVERYONE', allow_comment: true, allow_duet: false, allow_stitch: false,
     content_preview_confirmed: true, express_consent_given: true, video_made_with_ai: true,
   })
-}, 60_000)
+})
 
 test('youtube: first caption line becomes the title, public, not made for kids', async () => {
   const { productId, channelId } = await seed({ platform: 'youtube' })
-  const { postBody } = await videoNet()
-  const p = await insertPost(productId, channelId, { kind: 'video', slides: videoSlides(), caption: '겨울 여행 숙박 팁 3가지\n본문' })
+  const f = zernio(201, { post: { _id: 'zv', status: 'scheduled' } })
+  const p = await videoPost(productId, channelId, { caption: '겨울 여행 숙박 팁 3가지\n본문' })
   await publish(p.id)
-  expect(postBody().platforms[0].platformSpecificData).toEqual({ title: '겨울 여행 숙박 팁 3가지', visibility: 'public', madeForKids: false })
-  expect(postBody()).not.toHaveProperty('tiktokSettings')
-}, 60_000)
+  expect(postBody(f).platforms[0].platformSpecificData).toEqual({ title: '겨울 여행 숙박 팁 3가지', visibility: 'public', madeForKids: false })
+  expect(postBody(f)).not.toHaveProperty('tiktokSettings')
+})
 
-test('video: slide fetch fails → failed, nothing posted', async () => {
-  const { productId, channelId } = await seed({ platform: 'tiktok' })
-  const f = vi.fn<(url: string) => Promise<Response>>(async () => new Response('nope', { status: 500 })); vi.stubGlobal('fetch', f)
-  const p = await insertPost(productId, channelId, { kind: 'video', slides: videoSlides() })
-  await publish(p.id)
-  const row = await get(p.id)
-  expect(row.status).toBe('failed')
-  expect(row.error).toMatch(/slide/)
-  expect(f.mock.calls.some(c => String(c[0]).endsWith('/posts'))).toBe(false)
+test('video not rendered yet: nothing happens, it stays where it is', async () => {
+  const { productId, channelId } = await seed({ platform: 'tiktok', auto: false })
+  const f = zernio(201, {})
+  const p = await videoPost(productId, channelId, { video_url: null })
+  await publish(p.id, { approved: true })
+  expect((await get(p.id)).status).toBe('passed')
+  expect(f).not.toHaveBeenCalled()
 })
 
 test('maintenance: a post stuck at passed (publish crashed) is published', async () => {

@@ -98,6 +98,19 @@ test('tiktok and youtube take video posts only, 3–8 slides', async () => {
   expect((await createPost(json('POST', await withItem(textPost(productId, c.id, { kind: 'video', slides: slides(4) }))))).status).toBe(201)
 })
 
+test('video slides: look is say, count (with a number) or terminal (at most 8 lines); kept on the post', async () => {
+  const { productId } = await seed({ platform: 'tiktok' })
+  const [c] = await sql`select id from channels`
+  const post = async (last: Record<string, unknown>) =>
+    createPost(json('POST', await withItem(textPost(productId, c.id, { kind: 'video', client_key: `k${Math.random()}`, slides: [{ text: 'a' }, { text: 'b' }, last] }))))
+  expect((await post({ text: 'x', look: 'zoom' })).status).toBe(400)
+  expect((await post({ text: 'no number', look: 'count' })).status).toBe(400)
+  expect((await post({ text: Array(9).fill('$ ls').join('\n'), look: 'terminal' })).status).toBe(400)
+  const ok = await post({ text: '$ npx skills add x\nInstalled', look: 'terminal' })
+  expect(ok.status).toBe(201)
+  expect((await ok.json()).post.slides[2].look).toBe('terminal')
+})
+
 test('youtube: first caption line is the title, max 100 chars', async () => {
   const { productId } = await seed({ platform: 'youtube' })
   const [c] = await sql`select id from channels`
