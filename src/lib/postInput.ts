@@ -1,7 +1,8 @@
 import { findBanned } from './rules'
 
-/** look (video only): 'say' a line of kinetic type, 'count' a number counting up, 'terminal' commands typed with their output. */
-export type Slide = { text: string; photo_url?: string; photo_credit?: string; photo_track?: string; look?: 'say' | 'count' | 'terminal' }
+/** Video only: look is 'say' a line of kinetic type, 'count' a number counting up, 'terminal' commands typed with their output;
+ * voice is what the narrator says over it (default: the line itself; a terminal is silent without one). */
+export type Slide = { text: string; photo_url?: string; photo_credit?: string; photo_track?: string; look?: 'say' | 'count' | 'terminal'; voice?: string }
 const LOOKS = ['say', 'count', 'terminal']
 export type PostInput = {
   product_id: number; channel_id: number; client_key: string; kind: 'carousel' | 'text' | 'video'
@@ -29,6 +30,7 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
     if (!https(s.photo_url) || !https(s.photo_track)) return 'photo urls must be https'
     if (s.photo_credit !== undefined && s.photo_credit !== null && typeof s.photo_credit !== 'string') return 'photo_credit must be a string'
     if (s.look !== undefined && (b.kind !== 'video' || !LOOKS.includes(s.look))) return `look is for video slides only: ${LOOKS.join(', ')}`
+    if (s.voice !== undefined && (b.kind !== 'video' || !str(s.voice, 300))) return 'voice is for video slides only: what the narrator says (max 300 chars)'
     if (s.look === 'count' && !/\d/.test(s.text)) return 'a count slide needs a number'
     if (s.look === 'terminal' && s.text.split('\n').length > 8) return 'a terminal slide has at most 8 lines'
   }
@@ -50,14 +52,14 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
   }
   return {
     product_id: b.product_id, channel_id: b.channel_id, client_key: b.client_key.trim(), kind: b.kind,
-    caption: b.caption, slides: slides.map((s: Slide) => ({ text: s.text, photo_url: s.photo_url, photo_credit: s.photo_credit, photo_track: s.photo_track, look: s.look })),
+    caption: b.caption, slides: slides.map((s: Slide) => ({ text: s.text, photo_url: s.photo_url, photo_credit: s.photo_credit, photo_track: s.photo_track, look: s.look, voice: s.voice })),
     topic: b.topic, format_tag: b.format_tag, is_experiment: b.is_experiment === true, facts_used: facts,
   }
 }
 
 /** Banned-phrase verdict for a post: null when clean. */
 export function bannedReason(p: Pick<PostInput, 'caption' | 'slides'>, extra: string[]): string | null {
-  const hits = [...new Set([p.caption, ...p.slides.map(s => s.text)].flatMap(t => findBanned(t, extra)))]
+  const hits = [...new Set([p.caption, ...p.slides.flatMap(s => [s.text, s.voice ?? ''])].flatMap(t => findBanned(t, extra)))]
   return hits.length ? `banned: ${hits.join(', ')}` : null
 }
 

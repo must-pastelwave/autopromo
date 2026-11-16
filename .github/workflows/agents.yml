@@ -120,6 +120,12 @@ jobs:
         if: always() && (steps.pick.outputs.jobs != '' || steps.pick.outputs.videos != '0')
         with:
           node-version: 22
+      # The narrator's voice model (Kokoro, ~350 MB), downloaded once and kept between runs.
+      - uses: actions/cache@v4
+        if: always() && (steps.pick.outputs.jobs != '' || steps.pick.outputs.videos != '0')
+        with:
+          path: ~/.cache/hyperframes/tts
+          key: kokoro-v1
       - name: Render videos
         if: always() && (steps.pick.outputs.jobs != '' || steps.pick.outputs.videos != '0')
         run: |
@@ -129,15 +135,19 @@ jobs:
           sudo apt-get install -y -qq ffmpeg > /dev/null
           npm install -g --silent hyperframes@0.8.225
           hyperframes telemetry disable > /dev/null 2>&1 || true
+          # Narration: Kokoro runs on the runner, free, no key (video/build.mjs; Korean stays silent).
+          python3 -m venv "$RUNNER_TEMP/kokoro" && "$RUNNER_TEMP/kokoro/bin/pip" install -q kokoro-onnx soundfile \
+            && export HYPERFRAMES_TTS=1 HYPERFRAMES_PYTHON="$RUNNER_TEMP/kokoro/bin/python" || echo "No narration this run: Kokoro didn't install"
           echo "$list" | while read -r post; do
             id=$(echo "$post" | jq -r .id); dir="$RUNNER_TEMP/v$id"
             fail() { echo "post $id: $1"; api -X POST -d "$(jq -nc --arg e "$1" '{error: $e}')" "$APP_URL/api/agent/posts/$id/video" > /dev/null; }
             echo "$post" > "$RUNNER_TEMP/p$id.json"
             node video/build.mjs "$RUNNER_TEMP/p$id.json" "$dir" || { fail "build failed"; continue; }
             (cd "$dir" && hyperframes render -o raw.mp4) > "$dir.log" 2>&1 || { fail "render failed: $(tail -c 250 "$dir.log")"; continue; }
-            # A silent sound track: some apps treat a video without one as broken.
-            ffmpeg -v error -y -i "$dir/raw.mp4" -f lavfi -i anullsrc=r=44100:cl=stereo -c:v copy -c:a aac -shortest -movflags +faststart "$dir/out.mp4" \
-              || { fail "adding the sound track failed"; continue; }
+            # No narration (e.g. Korean): add a silent sound track, since some apps treat a video without one as broken.
+            if ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$dir/raw.mp4" | grep -q .; then mv "$dir/raw.mp4" "$dir/out.mp4"
+            else ffmpeg -v error -y -i "$dir/raw.mp4" -f lavfi -i anullsrc=r=44100:cl=stereo -c:v copy -c:a aac -shortest -movflags +faststart "$dir/out.mp4" \
+              || { fail "adding the sound track failed"; continue; }; fi
             up=$(api -X POST -d '{}' "$APP_URL/api/agent/posts/$id/video" | jq -r '.upload_url // empty')
             [ -n "$up" ] || { fail "no upload slot from Zernio"; continue; }
             curl -sSf -X PUT -H 'content-type: video/mp4' --upload-file "$dir/out.mp4" "$up" > /dev/null || { fail "upload failed"; continue; }
