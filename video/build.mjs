@@ -219,7 +219,8 @@ async function narrate(post, outDir) {
   const out = {}
   for (const [i, s] of post.slides.entries()) {
     const text = spokenText(s).trim()
-    if (!text) continue
+    // The narrator is an English voice: a line in another script (an older non-English post) stays silent.
+    if (!text || /[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Cyrillic}]/u.test(text)) continue
     try {
       const { stdout } = await promisify(execFile)(process.env.HYPERFRAMES_BIN || 'hyperframes',
         ['tts', text, '-v', 'am_michael', '-s', '1.1', '-o', join(outDir, `assets/voice/b${i}.wav`), '--json'], { maxBuffer: 1 << 20 })
