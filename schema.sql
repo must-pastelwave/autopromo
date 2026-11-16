@@ -122,8 +122,8 @@ insert into channels (product_id, platform, automatable)
 -- A person, counted once per post: a one-way hash of IP + browser (no raw IP kept). Old clicks have none.
 alter table clicks add column if not exists visitor text;
 -- Channels dropped on 2026-11-14. Ones with posts stay (history), switched off; the app hides them.
-update channels set enabled = false where platform in ('instagram','facebook','x','youtube','bluesky','naver_blog','naver_cafe','hackernews');
-delete from channels c where platform in ('instagram','facebook','x','youtube','bluesky','naver_blog','naver_cafe','hackernews')
+update channels set enabled = false where platform in ('instagram','facebook','x','bluesky','naver_blog','naver_cafe','hackernews');
+delete from channels c where platform in ('instagram','facebook','x','bluesky','naver_blog','naver_cafe','hackernews')
   and not exists (select 1 from posts x where x.channel_id = c.id);
 
 -- Places: communities beyond our own channels (Telegram/Discord groups, subreddits, forums, newsletters...).
