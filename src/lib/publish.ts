@@ -8,7 +8,8 @@ import { distribute } from './places'
 
 // Shown where captions can't hold a clickable link. Keyed by the product's language.
 const BIO_NOTE: Record<string, string> = { ko: '프로필 링크에서 확인하세요', en: 'Link in our profile' }
-const NEEDS_RECONNECT = /token|reconnect|unauthori[sz]ed|expired|permission|auth/i
+// "do not belong to this user": the linked account id is stale (connected under another Zernio profile).
+const NEEDS_RECONNECT = /token|reconnect|unauthori[sz]ed|expired|permission|auth|not belong/i
 const appUrl = () => (process.env.APP_URL ?? '').replace(/\/$/, '')
 
 // These apps don't make caption links clickable; the profile bio links to /l/<slug> instead.
