@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { METRICS, goalsWithProgress } from '@/lib/goals'
 import { claudeAccount } from '@/lib/github'
 import { PLATFORMS } from '@/lib/plans'
-import { saveClaude, saveFacts, saveGoals, savePlaybook, saveProduct, setActive } from '../actions'
+import { listAccounts, zernioKey } from '@/lib/zernio'
+import { saveClaude, saveZernio, saveFacts, saveGoals, savePlaybook, saveProduct, setActive } from '../actions'
 
 export function ProductForm({ p }: { p?: Record<string, any> }) {
   return (
@@ -39,6 +40,7 @@ const TABS = [
   { key: 'facts', label: 'Fact sheet' },
   { key: 'playbook', label: 'Playbook' },
   { key: 'claude', label: 'Claude account' },
+  { key: 'zernio', label: 'Zernio' },
 ] as const
 export type SettingsTab = (typeof TABS)[number]['key']
 export const settingsTab = (v?: string): SettingsTab => (TABS.some(t => t.key === v) ? v as SettingsTab : 'product')
@@ -91,6 +93,7 @@ export async function SettingsSection({ p, tab = 'product' }: { p: Record<string
       )}
 
       {tab === 'claude' && <ClaudePane />}
+      {tab === 'zernio' && <ZernioPane />}
 
       {tab === 'playbook' && (
         <div className="settings-pane">
@@ -163,6 +166,38 @@ async function ClaudePane() {
           <li><b>Or pay per use</b>: make an API key at console.anthropic.com → API keys.</li>
         </ul>
         <p className="muted">It is saved encrypted as a GitHub Actions secret of this app&apos;s repo, not in our database, and can&apos;t be read back here.</p>
+      </details>
+    </div>
+  )
+}
+
+// One Zernio account posts to TikTok, YouTube, Threads, LinkedIn and the rest, for every product.
+async function ZernioPane() {
+  const now = await zernioKey()
+  let check = ''
+  if (now) {
+    try { const a = await listAccounts(); check = `${a.length} social account${a.length === 1 ? '' : 's'} connected in it` }
+    catch (e) { check = `✗ ${e instanceof Error ? e.message : e}` }
+  }
+  const ok = !!now && !check.startsWith('✗')
+  return (
+    <div className="settings-pane">
+      <p className="lead">Zernio posts to TikTok, YouTube, Threads, LinkedIn, Instagram, Facebook and X. One Zernio account serves every product.</p>
+      <p className={`goal-status ${ok ? 'ok' : 'bad'}`}>
+        {!now ? '✗ No Zernio key yet: those channels can\'t post.'
+          : !ok ? check
+          : `✓ ${now.saved ? `Saved here ${new Date(now.saved).toLocaleDateString('en')}` : 'Using the key set in Vercel'}, ${check}.`}
+      </p>
+      <form action={saveZernio} className="stack">
+        <label>Zernio API key<input name="key" type="password" required autoComplete="off" placeholder="sk_…" /></label>
+        <div><button type="submit">{now ? 'Replace' : 'Save'}</button></div>
+      </form>
+      <details className="help" open={!ok}>
+        <summary>Where to get it, and what replacing does</summary>
+        <ul>
+          <li>zernio.com → log in → Settings → API keys → create a key, and paste it here. It&apos;s checked with Zernio before it&apos;s saved.</li>
+          <li><b>A key from another Zernio account</b> unlinks every connected social account. Posts already queued in the old account are cancelled and wait here; connect your accounts again in <Link href="/channels">Channels</Link> and they go out.</li>
+        </ul>
       </details>
     </div>
   )
