@@ -6,7 +6,7 @@ import { sql } from '@/lib/db'
 import { PRODUCT_COOKIE, requireOwner } from '@/lib/current'
 import { parseFactLines, replaceFacts } from '@/lib/facts'
 import { postNow, publish } from '@/lib/publish'
-import { dispatchAgent } from '@/lib/github'
+import { dispatchAgent, saveClaudeAccount } from '@/lib/github'
 import { requestRun } from '@/lib/runs'
 import { retryPost } from '@/lib/retry'
 import { parseGoals, repoStars, saveSnapshot } from '@/lib/goals'
@@ -181,4 +181,10 @@ export async function postNowAction(f: FormData) {
   const ok = await postNow(Number(s(f, 'id')))
   revalidatePath('/', 'layout')
   redirect(`/posts?msg=${encodeURIComponent(ok ? 'Going out within a few minutes.' : "Couldn't move it: it may already be going out. Check again in a few minutes.")}`)
+}
+
+export async function saveClaude(f: FormData) {
+  await requireOwner()
+  const err = await saveClaudeAccount(s(f, 'token'))
+  back(err ?? 'Saved. The agents use this Claude account from their next run.', 'settings?tab=claude')
 }
