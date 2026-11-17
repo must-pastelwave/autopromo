@@ -4,8 +4,8 @@ import { checkBluesky, checkDiscord, checkMastodon, checkTelegram, discordWebhoo
 
 /**
  * Places: communities beyond our own channels. Each approved place gets our recent published posts, up to its
- * per_week, each with its own tracked link (a share). Only 'auto' places get shares: posting is never left to a person.
- * Shares made for 'paste' places before that stay on the Places page.
+ * per_week, each with its own tracked link (a share). 'auto' places are sent here; 'paste' places (Reddit, Show HN…)
+ * wait on the Places page with their text ready, for a person to post.
  */
 
 export const AUTO_KINDS = ['telegram', 'discord', 'mastodon', 'bluesky']
@@ -34,8 +34,9 @@ export async function distribute(): Promise<void> {
         and not exists (select 1 from shares s where s.post_id = x.id and s.place_id = pl.id)
       order by (x.kind = 'text') desc, x.created_at desc limit 1) as post_id
     from places pl
-    where pl.status = 'approved' and pl.how = 'auto' and pl.target is not null
-      and (select count(*) from shares s where s.place_id = pl.id and s.created_at > now() - interval '7 days') < pl.per_week`
+    where pl.status = 'approved' and (pl.how = 'paste' or pl.target is not null)
+      and (select count(*) from shares s where s.place_id = pl.id and s.created_at > now() - interval '7 days') < pl.per_week
+      and not (pl.kind = any(${ONE_TIME_KINDS}) and exists (select 1 from shares s where s.place_id = pl.id))`
   for (const d of due) {
     if (d.post_id) await sql`insert into shares (post_id, place_id, link_code) values (${d.post_id}, ${d.place_id}, ${newCode()}) on conflict do nothing`
   }

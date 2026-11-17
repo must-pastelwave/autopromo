@@ -84,13 +84,15 @@ test('auto places post by themselves, once; per_week caps how often a place gets
   expect((await sql`select post_id from shares order by id`).map(r => r.post_id)).toEqual([newer.id, older.id])
 })
 
-test('places only a person can post in (paste) get no shares', async () => {
+test('launches and listings (Show HN, Product Hunt, lists) get one post, ever', async () => {
   const { productId, channelId } = await seed()
+  await insertPost(productId, channelId, { status: 'published', created_at: new Date(Date.now() - 86400_000) })
   await insertPost(productId, channelId, { status: 'published', created_at: new Date() })
   await suggestPlaces(productId, [{ name: 'Show HN', url: 'https://news.ycombinator.com/show', kind: 'hackernews' }])
-  await sql`update places set status = 'approved'`
+  await sql`update places set status = 'approved', per_week = 5`
   await distribute()
-  expect((await sql`select count(*)::int as n from shares`)[0].n).toBe(0)
+  await distribute()
+  expect((await sql`select count(*)::int as n from shares`)[0].n).toBe(1)
 })
 
 test('share text: a banned word skips it; list entries get the link inline', async () => {
