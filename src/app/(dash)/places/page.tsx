@@ -3,6 +3,7 @@ import { sql } from '@/lib/db'
 import { AUTO_KINDS, ONE_TIME_KINDS, placeStats, shareText } from '@/lib/places'
 import { Page } from '../sections/frame'
 import { CopyOpen } from '../sections/copy-open'
+import { RunStatus } from '../journey/run-status'
 import { addPlace, connectPlace, findPlaces, markShare, setPerWeek, setPlaceStatus, setShareViews } from './actions'
 
 const PLACEHOLDER: Record<string, string> = {
@@ -143,7 +144,8 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
       </>}
 
       {tab === 'suggested' && <>
-      <p className="muted">Found by the scout every Monday.</p>
+      <RunStatus productId={p.id} />
+      <p className="muted">Found by the scout every Monday, or now with the button.</p>
       <form action={findPlaces} style={{ marginBottom: 12 }}><button type="submit" className="ghost">Find places now</button></form>
       <div className="scroll"><table>
         <thead><tr><th>Place</th><th>Why</th><th>Rules</th><th></th></tr></thead>

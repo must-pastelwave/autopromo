@@ -13,7 +13,7 @@ test('research → channels → plan → running, in that order', async () => {
   expect(await step(productId)).toBe('research')
   await sql`update products set fact_sheet = ${sql.json([{ fact: 'a', source_url: 'https://x.test/' }])}`
   expect(await step(productId)).toBe('channels')
-  await sql`update channels set enabled = true`
+  await sql`update channels set enabled = true where platform = 'threads'`
   expect(await step(productId)).toBe('plan')
   const [pl] = await sql`insert into plans (product_id, status, starts_on, ends_on) values (${productId}, 'draft', current_date, current_date + 27) returning id`
   const j = await journeyFor(productId)
