@@ -113,8 +113,8 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
       <details style={{ marginTop: 8 }}>
         <summary>What&apos;s possible</summary>
         <p className="muted">
-          <b>By itself (the only kind that gets posts):</b> Telegram and Discord places whose admin added our bot or gave a webhook, and your own Mastodon and Bluesky accounts (add them as a place). Dev.to is a channel: connect it in Channels.<br />
-          <b>Not posted to:</b> subreddits, Hacker News, Product Hunt, forums and other places where only a person may post. Posting there by hand is up to you; autopromo doesn&apos;t queue it.<br />
+          <b>By itself:</b> Telegram and Discord places whose admin added our bot or gave a webhook, and your own Mastodon and Bluesky accounts (add them as a place). Dev.to is a channel: connect it in Channels.<br />
+          <b>You paste (about a minute):</b> subreddits, Hacker News, Product Hunt, Indie Hackers, forums, newsletters. The text is written for each place and waits under &ldquo;To paste&rdquo;.<br />
           <b>Never:</b> automating your own account to post in other people&apos;s groups, posting in channels we don&apos;t admin, mass DMs, auto-joining or auto-commenting. Accounts get banned for these.
         </p>
       </details>
