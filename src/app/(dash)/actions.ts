@@ -10,8 +10,8 @@ import { dispatchAgent, saveClaudeAccount } from '@/lib/github'
 import { requestRun } from '@/lib/runs'
 import { retryPost } from '@/lib/retry'
 import { parseGoals, repoStars, saveSnapshot } from '@/lib/goals'
-import { AUTOMATABLE, DRAFTS_ONLY } from '@/lib/plans'
-import { checkDevto, checkDiscord, checkTelegram, discordWebhookFor, isDiscordChannelId } from '@/lib/direct'
+import { ensureChannels } from '@/lib/plans'
+import { checkBluesky, checkDevto, checkDiscord, checkMastodon, checkTelegram, DIRECT, discordWebhookFor, isDiscordChannelId } from '@/lib/direct'
 
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
@@ -40,9 +40,7 @@ export async function saveProduct(f: FormData) {
   } else {
     const slug = (fields.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'product') + '-' + Date.now().toString(36).slice(-4)
     const [p] = await sql`insert into products ${sql({ ...fields, slug })} returning id, slug`
-    const rows = [...AUTOMATABLE.map(platform => ({ platform, automatable: true })), ...DRAFTS_ONLY.map(platform => ({ platform, automatable: false }))]
-      .map(r => ({ ...r, product_id: p.id }))
-    await sql`insert into channels ${sql(rows)}`
+    await ensureChannels(p.id)
     const picked = f.getAll('platform').map(String)
     if (picked.length) await sql`update channels set enabled = true, started_at = now() where product_id = ${p.id} and platform = any(${picked})`
     ;(await cookies()).set(PRODUCT_COOKIE, p.slug, { path: '/', sameSite: 'lax', maxAge: 60 * 60 * 24 * 365 })
@@ -133,15 +131,15 @@ export async function setDirectTarget(f: FormData) {
   await requireOwner()
   const id = Number(s(f, 'id'))
   const [c] = await sql`select platform from channels where id = ${id}`
-  if (!c || !['telegram', 'discord', 'devto'].includes(c.platform)) back('Unknown channel', 'channels')
+  if (!c || !DIRECT.includes(c.platform)) back('Unknown channel', 'channels')
   let target = s(f, 'target')
   // A Discord channel picked from the list: the bot makes the webhook, so the owner never copies a URL.
   if (c.platform === 'discord' && isDiscordChannelId(target)) target = await discordWebhookFor(target).catch(e => back(`discord: ${e.message}`, 'channels'))
-  const problem = await ({ telegram: checkTelegram, discord: checkDiscord, devto: checkDevto } as Record<string, (t: string) => Promise<string | null>>)[c.platform](target)
+  const problem = await ({ telegram: checkTelegram, discord: checkDiscord, devto: checkDevto, mastodon: checkMastodon, bluesky: checkBluesky } as Record<string, (t: string) => Promise<string | null>>)[c.platform](target)
   if (problem) back(`${c.platform}: ${problem}`, 'channels')
   await sql`update channels set target = ${target}, needs_reconnect = false where id = ${id}`
   revalidatePath('/')
-  back(`${{ telegram: 'Telegram', discord: 'Discord', devto: 'Dev.to' }[c.platform as string]} connected. Waiting posts for it go out on the next run.`, 'channels')
+  back(`${{ telegram: 'Telegram', discord: 'Discord', devto: 'Dev.to', mastodon: 'Mastodon', bluesky: 'Bluesky' }[c.platform as string]} connected. Waiting posts for it go out on the next run.`, 'channels')
 }
 
 export async function resolveWaiting(f: FormData) {

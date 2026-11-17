@@ -3,6 +3,7 @@ import { sql } from '@/lib/db'
 import { AUTO_KINDS, ONE_TIME_KINDS, placeStats, shareText } from '@/lib/places'
 import { Page } from '../sections/frame'
 import { CopyOpen } from '../sections/copy-open'
+import { RunStatus } from '../journey/run-status'
 import { addPlace, connectPlace, findPlaces, markShare, setPerWeek, setPlaceStatus, setShareViews } from './actions'
 
 const PLACEHOLDER: Record<string, string> = {
@@ -112,8 +113,8 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
       <details style={{ marginTop: 8 }}>
         <summary>What&apos;s possible</summary>
         <p className="muted">
-          <b>By itself (the only kind that gets posts):</b> Telegram and Discord places whose admin added our bot or gave a webhook, and your own Mastodon and Bluesky accounts (add them as a place). Dev.to is a channel: connect it in Channels.<br />
-          <b>Not posted to:</b> subreddits, Hacker News, Product Hunt, forums and other places where only a person may post. Posting there by hand is up to you; autopromo doesn&apos;t queue it.<br />
+          <b>By itself:</b> Telegram and Discord places whose admin added our bot or gave a webhook, and your own Mastodon and Bluesky accounts (add them as a place). Dev.to is a channel: connect it in Channels.<br />
+          <b>You paste (about a minute):</b> subreddits, Hacker News, Product Hunt, Indie Hackers, forums, newsletters. The text is written for each place and waits under &ldquo;To paste&rdquo;.<br />
           <b>Never:</b> automating your own account to post in other people&apos;s groups, posting in channels we don&apos;t admin, mass DMs, auto-joining or auto-commenting. Accounts get banned for these.
         </p>
       </details>
@@ -143,7 +144,8 @@ export default async function Places({ searchParams }: { searchParams: Promise<{
       </>}
 
       {tab === 'suggested' && <>
-      <p className="muted">Found by the scout every Monday.</p>
+      <RunStatus productId={p.id} />
+      <p className="muted">Found by the scout every Monday, or now with the button.</p>
       <form action={findPlaces} style={{ marginBottom: 12 }}><button type="submit" className="ghost">Find places now</button></form>
       <div className="scroll"><table>
         <thead><tr><th>Place</th><th>Why</th><th>Rules</th><th></th></tr></thead>

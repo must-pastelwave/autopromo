@@ -1,10 +1,11 @@
 import { sql } from '@/lib/db'
 import { CONNECTABLE, listAccounts, zernioPlatform } from '@/lib/zernio'
 import { discordChannels, discordInvite, isDirect, maskWebhook, telegramBotName, telegramChats } from '@/lib/direct'
-import { PLATFORMS } from '@/lib/plans'
+import { ensureChannels, PLATFORMS } from '@/lib/plans'
 import { setChannelAccount, setDirectTarget, setPerDay, toggleAutoPublish, toggleChannel } from '../actions'
 
 export async function ChannelsSection({ p }: { p: Record<string, any> }) {
+  await ensureChannels(p.id)
   const channels = await sql`
     select c.*, (
       select string_agg(pr.name, ', ') from channels o join products pr on pr.id = o.product_id
@@ -55,6 +56,16 @@ export async function ChannelsSection({ p }: { p: Record<string, any> }) {
         <input name="target" type="password" autoComplete="off" placeholder={c.target ? 'Connected (key saved)' : 'Dev.to API key'} aria-label="Dev.to API key" style={{ width: 210 }} />
         <button type="submit" className="ghost">{c.target ? 'Change' : 'Connect'}</button>
         {!c.target && <div className="muted">dev.to → Settings → Extensions → DEV Community API Keys. Every article for this product uses it.</div>}
+      </form>
+    )
+    if (c.platform === 'mastodon' || c.platform === 'bluesky') return (
+      <form action={setDirectTarget} className="row">
+        <input type="hidden" name="id" value={c.id} />
+        <input name="target" type="password" autoComplete="off" placeholder={c.target ? 'Connected (login saved)' : c.platform === 'mastodon' ? 'https://mastodon.social <access token>' : 'you.bsky.social <app password>'} aria-label={`${c.platform} login`} style={{ width: 240 }} />
+        <button type="submit" className="ghost">{c.target ? 'Change' : 'Connect'}</button>
+        {!c.target && <div className="muted">{c.platform === 'mastodon'
+          ? 'Your server address, a space, then an access token (Preferences → Development → New application, write:statuses).'
+          : 'Your handle, a space, then an app password (Settings → Privacy and security → App passwords).'}</div>}
       </form>
     )
     if (!c.automatable) return <span className="muted">You post it yourself from Waiting.</span>

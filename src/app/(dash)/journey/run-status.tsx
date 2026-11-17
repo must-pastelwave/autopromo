@@ -3,7 +3,7 @@ import { AutoRefresh } from './auto-refresh'
 import { startPlanning } from '../plan/actions'
 
 const mins = (from: Date) => Math.max(0, Math.round((Date.now() - new Date(from).getTime()) / 60000))
-const NAMES: Record<string, string> = { researcher: 'Research', planner: 'Planning', writer: 'Writing', reviewer: 'Review', analyst: 'Analysis' }
+const NAMES: Record<string, string> = { researcher: 'Research', planner: 'Planning', writer: 'Writing', reviewer: 'Review', analyst: 'Analysis', scout: 'Finding places' }
 const label = (jobs: string) => jobs.split(' ').map(j => NAMES[j] ?? j).join(' → ')
 
 /** What the agents are doing for this product right now, in minutes, refreshing itself while something is in progress. */

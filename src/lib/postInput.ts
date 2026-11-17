@@ -48,6 +48,8 @@ export function parsePostInput(b: any, ctx: { platform: string; factCount: numbe
   if (ctx.platform === 'x' && b.caption.length > 250) return 'x: caption max 250 chars (the app adds the link)'
   // Telegram photo captions stop at 1024 chars and Discord messages at 2000; the app appends the link.
   if (ctx.platform === 'telegram' && b.caption.length > 900) return 'telegram: caption max 900 chars (the app adds the link)'
+  if (ctx.platform === 'bluesky' && b.caption.length > 250) return 'bluesky: caption max 250 chars (the app adds the link)'
+  if (ctx.platform === 'mastodon' && b.caption.length > 450) return 'mastodon: caption max 450 chars (the app adds the link)'
   if (ctx.platform === 'discord' && b.caption.length > 1800) return 'discord: caption max 1800 chars (the app adds the link)'
   if (ctx.platform === 'youtube' && b.caption.split('\n')[0].trim().length > 100) return 'youtube: the first caption line is the title, max 100 chars'
   const facts = b.facts_used ?? []
