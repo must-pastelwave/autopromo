@@ -20,7 +20,7 @@ You'll need: a GitHub account, a Vercel account, a Claude Pro/Max subscription, 
 | `UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY` | optional, free keys from unsplash.com/developers and pexels.com/api. Without them slides are text on a plain background |
 | `APP_URL` | your Vercel URL, e.g. `https://autopromo-you.vercel.app` |
 | `GITHUB_REPO` | your fork, e.g. `you/autopromo`, so the app can start agent runs right away |
-| `GITHUB_DISPATCH_TOKEN` | a fine-grained GitHub token for that repo with **Actions: Read and write** (github.com/settings/personal-access-tokens). Without it, agents only run on their schedule |
+| `GITHUB_DISPATCH_TOKEN` | a fine-grained GitHub token for that repo with **Actions** and **Secrets: Read and write** (github.com/settings/personal-access-tokens). Lets the app start agent runs right away and save your Claude account (step 4) |
 
 6. Redeploy. Open the URL, sign in.
 
@@ -56,7 +56,8 @@ TikTok, YouTube and Instagram don't make links in captions clickable. Paste the 
 
 In your fork on GitHub → **Settings → Secrets and variables → Actions**:
 
-- Secrets: `CLAUDE_CODE_OAUTH_TOKEN` (run `claude setup-token` in your terminal and paste what it prints), `APP_URL`, `AGENT_TOKEN` (same value as in Vercel).
+- Secrets: `APP_URL`, `AGENT_TOKEN` (same value as in Vercel).
+- Claude account: in the dashboard → **Settings → Claude account**, paste what `claude setup-token` prints (or an API key). The app saves it as the repo secret for you.
 - Variable (optional): `AGENT_MODEL` (default `claude-opus-5-5`; `claude-sonnet-5-5` costs about half).
 
 **Heads-up:** GitHub turns off scheduled workflows after 60 days with no commits to the repo. If the Actions tab says the workflow is disabled, click **Enable workflow** (or push any small commit once a month).

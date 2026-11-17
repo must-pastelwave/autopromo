@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { METRICS, goalsWithProgress } from '@/lib/goals'
+import { claudeAccount } from '@/lib/github'
 import { PLATFORMS } from '@/lib/plans'
-import { saveFacts, saveGoals, savePlaybook, saveProduct, setActive } from '../actions'
+import { saveClaude, saveFacts, saveGoals, savePlaybook, saveProduct, setActive } from '../actions'
 
 export function ProductForm({ p }: { p?: Record<string, any> }) {
   return (
@@ -37,6 +38,7 @@ const TABS = [
   { key: 'goals', label: 'Goals' },
   { key: 'facts', label: 'Fact sheet' },
   { key: 'playbook', label: 'Playbook' },
+  { key: 'claude', label: 'Claude account' },
 ] as const
 export type SettingsTab = (typeof TABS)[number]['key']
 export const settingsTab = (v?: string): SettingsTab => (TABS.some(t => t.key === v) ? v as SettingsTab : 'product')
@@ -88,6 +90,8 @@ export async function SettingsSection({ p, tab = 'product' }: { p: Record<string
         </div>
       )}
 
+      {tab === 'claude' && <ClaudePane />}
+
       {tab === 'playbook' && (
         <div className="settings-pane">
           <p className="lead">What works for this product, written each week by the analyst from the results. The planner and writer follow it. Edit it if you disagree.</p>
@@ -134,5 +138,32 @@ async function GoalsForm({ productId }: { productId: number }) {
         <ul>{Object.values(METRICS).map(m => <li key={m.label}><b>{m.label}</b>: {m.how}</li>)}</ul>
       </details>
     </form>
+  )
+}
+
+// One Claude account runs the agents for every product. The token goes straight into the repo's GitHub secret.
+async function ClaudePane() {
+  const now = await claudeAccount()
+  return (
+    <div className="settings-pane">
+      <p className="lead">The agents write, review and plan on a Claude account. It is shared by every product.</p>
+      <p className={`goal-status ${now && !('error' in now) ? 'ok' : 'bad'}`}>
+        {now === null ? '✗ No Claude account yet: the agents can\'t run.'
+          : 'error' in now ? `✗ ${now.error}`
+          : `✓ Using a ${now.name === 'ANTHROPIC_API_KEY' ? 'Claude API key (pay per use)' : 'Claude subscription'}, saved ${new Date(now.updated).toLocaleDateString('en')}.`}
+      </p>
+      <form action={saveClaude} className="stack">
+        <label>Claude token or API key<input name="token" type="password" required autoComplete="off" placeholder="sk-ant-…" /></label>
+        <div><button type="submit">{now && !('error' in now) ? 'Replace' : 'Save'}</button></div>
+      </form>
+      <details className="help" open={!now || 'error' in now}>
+        <summary>Where to get it</summary>
+        <ul>
+          <li><b>Your Claude subscription (Pro or Max)</b>: install Claude Code, run <code>claude setup-token</code> in a terminal, log in, and paste what it prints. Runs count toward your plan&apos;s limits.</li>
+          <li><b>Or pay per use</b>: make an API key at console.anthropic.com → API keys.</li>
+        </ul>
+        <p className="muted">It is saved encrypted as a GitHub Actions secret of this app&apos;s repo, not in our database, and can&apos;t be read back here.</p>
+      </details>
+    </div>
   )
 }
