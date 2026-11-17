@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { METRICS, goalsWithProgress } from '@/lib/goals'
+import { PLATFORMS } from '@/lib/plans'
 import { saveFacts, saveGoals, savePlaybook, saveProduct, setActive } from '../actions'
 
 export function ProductForm({ p }: { p?: Record<string, any> }) {
@@ -18,7 +19,7 @@ export function ProductForm({ p }: { p?: Record<string, any> }) {
         <fieldset className="choices-field">
           <legend>Where to post (optional; you can choose after research)</legend>
           <div className="choices">
-            {['x', 'linkedin', 'youtube', 'instagram', 'threads', 'tiktok', 'facebook', 'telegram', 'discord', 'reddit', 'naver_blog'].map(pl => (
+            {PLATFORMS.map(pl => (
               <label key={pl} className="choice"><input type="checkbox" name="platform" value={pl} /><span><b>{pl}</b></span></label>
             ))}
           </div>

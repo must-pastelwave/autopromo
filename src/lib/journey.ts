@@ -1,4 +1,5 @@
 import { sql } from './db'
+import { ensureChannels } from './plans'
 
 /** Where a product is on its way: research → channels → plan (confirm) → running. */
 export type Step = 'research' | 'channels' | 'plan' | 'running'
@@ -18,6 +19,7 @@ export type Journey = {
 export async function journeyFor(productId: number): Promise<Journey | null> {
   const [p] = await sql`select jsonb_array_length(fact_sheet) as n from products where id = ${productId}`
   if (!p) return null
+  await ensureChannels(productId)
   const channels = (await sql`
     select id, platform, enabled, automatable, (zernio_account_id is not null or target is not null) as connected
     from channels where product_id = ${productId} order by id`) as unknown as Journey['channels']

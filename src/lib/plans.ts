@@ -1,10 +1,16 @@
 import { sql } from './db'
 
 export const PLAN_DAYS = 28
-/** The channels we use. Others (instagram, facebook, x, bluesky, naver, hackernews) were dropped on 2026-11-14; YouTube came back on 2026-11-16. */
-export const AUTOMATABLE = ['threads', 'tiktok', 'youtube', 'linkedin', 'telegram', 'discord', 'devto']
-export const DRAFTS_ONLY = ['reddit']
+/** Every channel we can post to. Zernio: threads … x. Direct: telegram … bluesky. Drafts: a person posts. */
+export const AUTOMATABLE = ['threads', 'tiktok', 'youtube', 'linkedin', 'instagram', 'facebook', 'x', 'telegram', 'discord', 'devto', 'mastodon', 'bluesky']
+export const DRAFTS_ONLY = ['reddit', 'hackernews', 'naver_blog']
 export const PLATFORMS = [...AUTOMATABLE, ...DRAFTS_ONLY]
+
+/** Give a product a row (off) for every channel, so channels added after it was created show up too. */
+export async function ensureChannels(productId: number): Promise<void> {
+  const rows = PLATFORMS.map(platform => ({ product_id: productId, platform, automatable: AUTOMATABLE.includes(platform) }))
+  await sql`insert into channels ${sql(rows)} on conflict (product_id, platform) do update set automatable = excluded.automatable`
+}
 
 /** The one format each channel takes. */
 export function formatFor(platform: string): 'post' | 'carousel' | 'video' | 'draft' {

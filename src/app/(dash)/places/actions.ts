@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { sql } from '@/lib/db'
 import { currentProduct, requireOwner } from '@/lib/current'
 import { dispatchAgent } from '@/lib/github'
+import { requestRun } from '@/lib/runs'
 import { placeTarget, suggestPlaces } from '@/lib/places'
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
@@ -77,6 +78,11 @@ export async function setShareViews(f: FormData) {
 
 export async function findPlaces() {
   await requireOwner()
+  const p = await currentProduct()
+  // One scout at a time: a second press would only queue (and cancel) another run.
+  const [busy] = await sql`select 1 from agent_runs where jobs like '%scout%' and status in ('queued', 'running') and coalesce(started_at, requested_at) > now() - interval '45 minutes'`
+  if (busy) back('The scout is already looking. New places show up here when it finishes.', 'suggested')
+  if (p) await requestRun(p.id, 'scout')
   const started = await dispatchAgent('scout')
-  back(started ? 'The scout is looking for places; new ones show up under "Suggested" in about 15 minutes.' : 'Couldn\'t start the scout now; it runs every Monday by itself.', 'suggested')
+  back(started ? 'The scout started. New places show up here in about 5 minutes.' : 'Couldn\'t start the scout now; it runs every Monday by itself.', 'suggested')
 }
