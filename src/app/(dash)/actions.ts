@@ -7,6 +7,7 @@ import { PRODUCT_COOKIE, requireOwner } from '@/lib/current'
 import { parseFactLines, replaceFacts } from '@/lib/facts'
 import { postNow, publish } from '@/lib/publish'
 import { dispatchAgent, saveClaudeAccount } from '@/lib/github'
+import { saveZernioKey } from '@/lib/zernio'
 import { requestRun } from '@/lib/runs'
 import { retryPost } from '@/lib/retry'
 import { parseGoals, repoStars, saveSnapshot } from '@/lib/goals'
@@ -185,4 +186,11 @@ export async function saveClaude(f: FormData) {
   await requireOwner()
   const err = await saveClaudeAccount(s(f, 'token'))
   back(err ?? 'Saved. The agents use this Claude account from their next run.', 'settings?tab=claude')
+}
+
+export async function saveZernio(f: FormData) {
+  await requireOwner()
+  const err = await saveZernioKey(s(f, 'key'))
+  revalidatePath('/', 'layout')
+  back(err ?? 'Saved. Connect your accounts in Channels.', 'settings?tab=zernio')
 }

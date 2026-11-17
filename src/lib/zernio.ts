@@ -1,3 +1,5 @@
+import { sql } from './db'
+
 const BASE = 'https://zernio.com/api/v1'
 
 export class ZernioError extends Error {
@@ -6,9 +8,16 @@ export class ZernioError extends Error {
   }
 }
 
-async function call(path: string, init: RequestInit = {}): Promise<{ status: number; body: any }> {
-  const key = process.env.ZERNIO_API_KEY
-  if (!key) throw new ZernioError(0, 'ZERNIO_API_KEY is not set')
+/** The Zernio key saved in Settings, else ZERNIO_API_KEY from Vercel. */
+export async function zernioKey(): Promise<{ key: string; saved: Date | null } | null> {
+  const [r] = await sql`select value, updated_at from settings where key = 'zernio_api_key'`
+  if (r) return { key: r.value, saved: r.updated_at }
+  return process.env.ZERNIO_API_KEY ? { key: process.env.ZERNIO_API_KEY, saved: null } : null
+}
+
+async function call(path: string, init: RequestInit = {}, useKey?: string): Promise<{ status: number; body: any }> {
+  const key = useKey ?? (await zernioKey())?.key
+  if (!key) throw new ZernioError(0, 'no Zernio API key: add one in Settings → Zernio')
   const headers = new Headers(init.headers)
   headers.set('Authorization', `Bearer ${key}`)
   if (init.body) headers.set('Content-Type', 'application/json')
@@ -109,4 +118,31 @@ export async function getFollowerStats(accountIds: string[], fromDate: string): 
   const qs = new URLSearchParams({ accountIds: accountIds.join(','), fromDate, granularity: 'daily' })
   const { body } = await call(`/accounts/follower-stats?${qs}`)
   return body?.stats ?? {}
+}
+
+/**
+ * Switch to another Zernio account (or save the first key). The key must work. Accounts and profiles from the old
+ * account mean nothing in the new one: posts queued there are cancelled (best effort, with the old key) and wait
+ * again, and every channel is unlinked until the owner connects it again. Returns what's wrong, or null.
+ */
+export async function saveZernioKey(value: string): Promise<string | null> {
+  const key = value.trim()
+  if (!/^\S{20,}$/.test(key)) return 'Paste the API key from Zernio (Settings → API keys).'
+  try { await call('/accounts', {}, key) } catch (e) {
+    return e instanceof ZernioError && e.status === 401 ? 'Zernio doesn\'t accept that key. Copy it again from Zernio.' : `Can't check the key now: ${e instanceof Error ? e.message : e}`
+  }
+  const old = (await zernioKey())?.key
+  if (old && old !== key) {
+    const queued = await sql`select zernio_post_id from posts where status = 'scheduled' and zernio_post_id is not null`
+    for (const q of queued) await call(`/posts/${encodeURIComponent(q.zernio_post_id)}`, { method: 'DELETE' }, old).catch(() => {})
+    await sql.begin(async tx => {
+      await tx`update posts p set status = 'waiting', zernio_post_id = null, error = 'connect your ' || c.platform || ' account to post this'
+        from channels c where c.id = p.channel_id and p.status = 'scheduled' and p.zernio_post_id is not null`
+      await tx`update channels set zernio_account_id = null, needs_reconnect = false where zernio_account_id is not null`
+      await tx`update products set zernio_profile_id = null where zernio_profile_id is not null`
+    })
+  }
+  await sql`insert into settings (key, value) values ('zernio_api_key', ${key})
+    on conflict (key) do update set value = excluded.value, updated_at = now()`
+  return null
 }

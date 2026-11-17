@@ -1,8 +1,10 @@
 import { test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { connectUrl, createPost, ensureProfile, listAccounts, presignMedia, ZernioError } from './zernio'
+import { connectUrl, createPost, ensureProfile, listAccounts, presignMedia, saveZernioKey, ZernioError } from './zernio'
+import { sql } from './db'
+import { insertPost, resetDb, seed } from '@/test/db'
 
 const args = { postId: 42, accountId: 'acc1', platform: 'threads', caption: 'hi', mediaUrls: ['https://app.test/api/slide/42/0.png'], scheduledFor: new Date('2026-11-12T00:07:00Z') }
-beforeEach(() => { process.env.ZERNIO_API_KEY = 'sk_test' })
+beforeEach(async () => { await resetDb(); process.env.ZERNIO_API_KEY = 'sk_test' })
 afterEach(() => vi.unstubAllGlobals())
 
 const respond = (status: number, body: unknown) => { const f = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => Response.json(body, { status })); vi.stubGlobal('fetch', f); return f }
@@ -36,7 +38,7 @@ test('no media → no mediaItems field', async () => {
 test('no API key → clear error, no network call', async () => {
   delete process.env.ZERNIO_API_KEY
   const f = vi.fn(); vi.stubGlobal('fetch', f)
-  await expect(listAccounts()).rejects.toThrow('ZERNIO_API_KEY is not set')
+  await expect(listAccounts()).rejects.toThrow('no Zernio API key')
   expect(f).not.toHaveBeenCalled()
 })
 
@@ -88,4 +90,22 @@ test('listAccounts can filter by profile', async () => {
   const f = respond(200, { accounts: [] })
   await listAccounts('pf1')
   expect(f.mock.calls[0][0]).toBe('https://zernio.com/api/v1/accounts?profileId=pf1')
+})
+
+test('Zernio key from Settings: a bad key is refused; a new account cancels old queued posts and unlinks channels', async () => {
+  respond(401, { error: 'Invalid, revoked or expired API key.' })
+  expect(await saveZernioKey('sk_bad_key_000000000000000')).toMatch(/doesn't accept/)
+
+  const { productId, channelId } = await seed()
+  const post = await insertPost(productId, channelId, { status: 'scheduled', zernio_post_id: 'z9', scheduled_for: new Date() })
+  const f = respond(200, { accounts: [] })
+  expect(await saveZernioKey('sk_new_key_000000000000000')).toBeNull()
+  const del = f.mock.calls.find(([, init]) => init?.method === 'DELETE')!
+  expect(del[0]).toBe('https://zernio.com/api/v1/posts/z9')
+  expect(new Headers(del[1]!.headers).get('Authorization')).toBe('Bearer sk_test')   // cancelled with the old key
+  expect((await sql`select status, zernio_post_id from posts where id = ${post.id}`)[0]).toEqual({ status: 'waiting', zernio_post_id: null })
+  expect((await sql`select zernio_account_id from channels where id = ${channelId}`)[0].zernio_account_id).toBeNull()
+
+  await listAccounts()   // from now on the saved key is used
+  expect(new Headers((f.mock.calls.at(-1)![1] as RequestInit).headers).get('Authorization')).toBe('Bearer sk_new_key_000000000000000')
 })

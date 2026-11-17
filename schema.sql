@@ -166,3 +166,5 @@ insert into channels (product_id, platform, automatable)
 -- mp4 in Zernio's media store; video_upload: where the running render was told to upload (confirmed into video_url).
 alter table posts add column if not exists video_url text;
 alter table posts add column if not exists video_upload text;
+-- App-wide settings the owner sets in the app (the Zernio API key; falls back to the ZERNIO_API_KEY env).
+create table if not exists settings (key text primary key, value text not null, updated_at timestamptz not null default now());
